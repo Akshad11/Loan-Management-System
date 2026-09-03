@@ -3,32 +3,27 @@ import prisma from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: Request) {
+export async function GET() {
+  const startTime = Date.now();
   try {
-    // Perform a raw query to check direct PostgreSQL connection
-    const result = await prisma.$queryRaw<Array<{ now: Date; version: string }>>`
-      SELECT NOW() as now, version() as version;
-    `;
+    const result = await prisma.$queryRaw<Array<{ now: Date }>>`SELECT NOW() as now;`;
+    const latencyMs = Date.now() - startTime;
 
     return NextResponse.json({
-      status: 'connected',
-      message: 'Successfully connected to PostgreSQL database via Prisma.',
-      database: process.env.PGDATABASE || 'unknown',
-      host: process.env.PGHOST || 'unknown',
-      port: process.env.PGPORT || '5432',
-      serverTime: result[0]?.now ?? new Date().toISOString(),
-      postgresVersion: result[0]?.version ?? 'unknown',
+      status: 'healthy',
+      database: 'connected',
+      latencyMs,
+      timestamp: result[0]?.now ?? new Date().toISOString(),
     });
   } catch (error: any) {
-    console.error('PostgreSQL Connection Error:', error);
+    console.error('PostgreSQL Connection Error:', error?.message);
     return NextResponse.json(
       {
-        status: 'error',
-        message: 'Failed to connect to PostgreSQL database.',
-        error: error?.message || String(error),
-        hint: 'Please check your PGHOST, PGPORT, PGUSER, PGPASSWORD, and PGDATABASE variables in .env and verify that PostgreSQL is running.',
+        status: 'unhealthy',
+        database: 'disconnected',
+        error: process.env.NODE_ENV === 'production' ? 'Database connection unavailable' : error?.message,
       },
-      { status: 500 }
+      { status: 503 }
     );
   }
 }

@@ -90,23 +90,21 @@ export const DynamicFormRenderer: React.FC<DynamicFormRendererProps> = ({
   // Handle field change
   const handleFieldChange = (fieldId: string, value: any) => {
     if (readOnly) return;
-    setResponses((prev) => {
-      const updated = { ...prev, [fieldId]: value };
+    const updatedResponses = { ...responses, [fieldId]: value };
 
-      // Re-evaluate calculated fields if any
-      schema.pages.forEach((p) => {
-        p.sections.forEach((s) => {
-          s.fields.forEach((f) => {
-            if (f.type === 'CALCULATED' && f.calculationFormula) {
-              const calcVal = evaluateCalculatedField(f.calculationFormula, updated);
-              updated[f.id] = calcVal;
-            }
-          });
+    // Re-evaluate calculated fields if any
+    schema.pages.forEach((p) => {
+      p.sections.forEach((s) => {
+        s.fields.forEach((f) => {
+          if (f.type === 'CALCULATED' && f.calculationFormula) {
+            const calcVal = evaluateCalculatedField(f.calculationFormula, updatedResponses);
+            updatedResponses[f.id] = calcVal;
+          }
         });
       });
-
-      return updated;
     });
+
+    setResponses(updatedResponses);
 
     // Clear field-specific error
     if (errors[fieldId]) {
@@ -117,11 +115,11 @@ export const DynamicFormRenderer: React.FC<DynamicFormRendererProps> = ({
       });
     }
 
-    // Trigger auto-save debounce
+    // Trigger auto-save with updated responses
     if (onAutoSaveDraft) {
       setIsAutoSaving(true);
       setAutoSaveStatus('Saving draft...');
-      onAutoSaveDraft(responses, signatures, currentPageIndex)
+      onAutoSaveDraft(updatedResponses, signatures, currentPageIndex)
         .then(() => {
           setAutoSaveStatus('Draft saved');
           setIsAutoSaving(false);
@@ -379,18 +377,22 @@ export const DynamicFormRenderer: React.FC<DynamicFormRendererProps> = ({
 
                 return (
                   <div key={field.id} className={`${widthClass} space-y-1.5`}>
-                    <label className="block text-xs font-bold text-slate-800">
+                    <label
+                      htmlFor={`field-${field.id}`}
+                      className="block text-xs font-bold text-slate-800 break-words leading-relaxed whitespace-normal"
+                    >
                       {field.label}
                       {field.required && <span className="text-rose-500 font-bold ml-1">*</span>}
                     </label>
 
                     {field.description && (
-                      <p className="text-[11px] text-slate-500">{field.description}</p>
+                      <p className="text-[11px] text-slate-500 break-words leading-normal">{field.description}</p>
                     )}
 
                     {/* Field Input Control */}
                     {field.type === 'TEXTAREA' ? (
                       <textarea
+                        id={`field-${field.id}`}
                         rows={3}
                         value={value}
                         disabled={readOnly}
@@ -402,6 +404,7 @@ export const DynamicFormRenderer: React.FC<DynamicFormRendererProps> = ({
                       />
                     ) : field.type === 'SELECT' ? (
                       <select
+                        id={`field-${field.id}`}
                         value={value}
                         disabled={readOnly}
                         onChange={(e) => handleFieldChange(field.id, e.target.value)}
@@ -484,6 +487,7 @@ export const DynamicFormRenderer: React.FC<DynamicFormRendererProps> = ({
                       </div>
                     ) : (
                       <input
+                        id={`field-${field.id}`}
                         type={field.type === 'NUMBER' || field.type === 'CURRENCY' || field.type === 'PERCENTAGE' ? 'number' : field.type === 'DATE' ? 'date' : 'text'}
                         value={value}
                         disabled={readOnly}

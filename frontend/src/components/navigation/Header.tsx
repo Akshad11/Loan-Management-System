@@ -1,39 +1,59 @@
 import React from 'react';
-import { Search, Landmark, Shield } from 'lucide-react';
+import { Search, Menu } from 'lucide-react';
 import { UserMenu } from './UserMenu';
 import { NotificationMenu } from './NotificationMenu';
 import { useAuth } from '../../services/authContext';
+import { useSettings } from '../../services/settingsContext';
 
 interface HeaderProps {
   currentModuleTitle: string;
   onOpenSearch: () => void;
   onNavigate: (module: string) => void;
+  onToggleMobileMenu?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   currentModuleTitle,
   onOpenSearch,
   onNavigate,
+  onToggleMobileMenu,
 }) => {
   const { user } = useAuth();
+  const { getSetting } = useSettings();
+
+  const appName = getSetting('application.name', 'Loan Management System');
+  const appShort = getSetting('application.shortName', 'LMS');
+  const companyName = getSetting('company.name', 'Enterprise Banking Platform');
 
   return (
     <header className="bg-white border-b border-slate-200 h-14 px-3 sm:px-5 flex items-center justify-between shrink-0 z-30 sticky top-0">
       {/* Brand & Module Context */}
-      <div className="flex items-center gap-3 min-w-0">
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+        {/* Mobile menu trigger */}
+        {onToggleMobileMenu && (
+          <button
+            type="button"
+            onClick={onToggleMobileMenu}
+            className="md:hidden p-1.5 -ml-1 rounded-md text-slate-600 hover:text-slate-900 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-900"
+            aria-label="Toggle navigation menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+        )}
+
         <div
           onClick={() => onNavigate('dashboard')}
           className="flex items-center gap-2 cursor-pointer select-none group"
         >
-          <div className="w-8 h-8 rounded bg-slate-900 text-white flex items-center justify-center font-black text-sm tracking-tighter">
-            LMS
+          <div className="w-8 h-8 rounded bg-slate-900 text-white flex items-center justify-center font-black text-sm tracking-tighter shrink-0">
+            {appShort}
           </div>
           <div className="hidden sm:block">
-            <span className="font-bold text-sm text-slate-900 tracking-tight block leading-tight group-hover:text-slate-700 transition-colors">
-              Loan Management System
+            <span className="font-bold text-sm text-slate-900 tracking-tight block leading-tight group-hover:text-slate-700 transition-colors truncate max-w-[200px]">
+              {appName}
             </span>
-            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest block leading-none">
-              Enterprise Banking Platform
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest block leading-none truncate max-w-[200px]">
+              {companyName}
             </span>
           </div>
         </div>

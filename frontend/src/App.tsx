@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './services/authContext';
+import { SettingsProvider, useSettings } from './services/settingsContext';
 import { LoginView } from './components/auth/LoginView';
 import { AppShell } from './components/navigation/AppShell';
 import { DashboardView } from './components/dashboard/DashboardView';
@@ -28,9 +29,54 @@ import { AuditView } from './components/modules/AuditView';
 import { AdminView } from './components/modules/AdminView';
 import { SessionExpiredState } from './components/shared/AccessDeniedState';
 
+const MODULE_TITLES: Record<string, string> = {
+  dashboard: 'Dashboard',
+  customers: 'Customers',
+  kyc: 'KYC Verification',
+  documents: 'Document Vault',
+  applications: 'Loan Applications',
+  credit_assessment: 'Credit Assessment',
+  approvals: 'Approval Matrix',
+  sanctions: 'Sanctions & Underwriting',
+  disbursements: 'Disbursement Management',
+  loans: 'Active Loans & Portfolios',
+  repayments: 'Repayments & Dues',
+  collections: 'Collections & Delinquency',
+  recovery: 'Recovery & Legal Actions',
+  restructuring: 'Loan Restructuring',
+  charges_adjustments: 'Charges & Waivers',
+  closures_noc: 'Settlement & NOC',
+  loan_products: 'Loan Products & Form Builder',
+  system_config: 'System Configuration',
+  users: 'User Directory',
+  roles: 'Roles & Access Control',
+  branches: 'Branch Management',
+  users_roles: 'Access Management',
+  reports: 'Financial Reports & Analytics',
+  audit: 'System Audit Trail',
+  admin: 'Administration & Master Settings',
+};
+
 const MainAppRouter: React.FC = () => {
   const { authState, resetToDefaultLogin } = useAuth();
+  const { getSetting } = useSettings();
   const [currentModule, setCurrentModule] = useState<string>('dashboard');
+
+  const appName = getSetting('application.name', 'FinTech LMS');
+
+  // Synchronize dynamic browser title with branding & current module
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      if (authState === 'unauthenticated' || authState === 'authenticating') {
+        document.title = `Corporate Sign In | ${appName}`;
+      } else if (authState === 'session_expired') {
+        document.title = `Session Expired | ${appName}`;
+      } else {
+        const title = MODULE_TITLES[currentModule] || 'Dashboard';
+        document.title = `${title} | ${appName}`;
+      }
+    }
+  }, [currentModule, authState, appName]);
 
   if (authState === 'unauthenticated' || authState === 'authenticating') {
     return <LoginView />;
@@ -50,7 +96,7 @@ const MainAppRouter: React.FC = () => {
         return (
           <KycView
             currentUser="Alex Morgan"
-            onNavigateToCustomer={(custId) => {
+            onNavigateToCustomer={() => {
               setCurrentModule('customers');
             }}
           />
@@ -59,7 +105,7 @@ const MainAppRouter: React.FC = () => {
         return (
           <DocumentsView
             currentUser="Alex Morgan"
-            onNavigateToCustomer={(custId) => {
+            onNavigateToCustomer={() => {
               setCurrentModule('customers');
             }}
           />
@@ -67,7 +113,7 @@ const MainAppRouter: React.FC = () => {
       case 'applications':
         return (
           <ApplicationsView
-            onNavigateToCustomer={(custId) => {
+            onNavigateToCustomer={() => {
               setCurrentModule('customers');
             }}
           />
@@ -90,7 +136,7 @@ const MainAppRouter: React.FC = () => {
         return (
           <CreditAssessmentView
             onNavigate={(mod) => setCurrentModule(mod)}
-            onNavigateToApproval={(apprId) => {
+            onNavigateToApproval={() => {
               setCurrentModule('approvals');
             }}
           />
@@ -98,10 +144,10 @@ const MainAppRouter: React.FC = () => {
       case 'approvals':
         return (
           <ApprovalsView
-            onNavigateToCreditAssessment={(caId) => {
+            onNavigateToCreditAssessment={() => {
               setCurrentModule('credit_assessment');
             }}
-            onNavigateToApplication={(appId) => {
+            onNavigateToApplication={() => {
               setCurrentModule('applications');
             }}
           />
@@ -142,8 +188,10 @@ const MainAppRouter: React.FC = () => {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <MainAppRouter />
-    </AuthProvider>
+    <SettingsProvider>
+      <AuthProvider>
+        <MainAppRouter />
+      </AuthProvider>
+    </SettingsProvider>
   );
 }
