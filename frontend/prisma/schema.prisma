@@ -1,0 +1,2313 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ----------------------------------------------------
+// System & Access Management
+// ----------------------------------------------------
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  LOCKED
+  SUSPENDED
+}
+
+model User {
+  id           String      @id @default(uuid())
+  username     String      @unique
+  email        String      @unique
+  firstName    String
+  lastName     String
+  employeeId   String      @unique
+  mobile       String
+  department   String?
+  status       UserStatus  @default(ACTIVE)
+  roleId       String
+  branchId     String
+  lastLogin    DateTime?
+  failedLogins Int         @default(0)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  role         Role        @relation(fields: [roleId], references: [id])
+  branch       Branch      @relation(fields: [branchId], references: [id])
+
+  @@map("users")
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  code        String?  @unique
+  name        String   @unique
+  description String
+  isSystem    Boolean  @default(false)
+  permissions String[] // List of permission keys
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       User[]
+
+  @@map("roles")
+}
+
+model Branch {
+  id                  String   @id @default(uuid())
+  code                String   @unique
+  name                String
+  addressLine1        String?
+  addressLine2        String?
+  city                String
+  state               String
+  pinCode             String?
+  phone               String?
+  email               String?
+  managerId           String?
+  managerName         String?
+  region              String?  @default("West")
+  status              String   @default("ACTIVE")
+  activeLoanCount     Int      @default(0)
+  totalPortfolioValue Decimal? @db.Decimal(16, 2)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  users               User[]
+  customers           Customer[]
+  loans               LoanAccount[]
+
+  @@map("branches")
+}
+
+// ----------------------------------------------------
+// Audit Trail
+// ----------------------------------------------------
+
+enum AuditEntityType {
+  USER
+  ROLE
+  BRANCH
+  PERMISSION
+  APPLICATION
+  SANCTION
+  DISBURSEMENT
+  CUSTOMER
+  CREDIT_ASSESSMENT
+  APPROVAL
+  SETTINGS
+}
+
+model AdminAuditLog {
+  id         String          @id @default(uuid())
+  timestamp  DateTime        @default(now())
+  actorId    String
+  actorName  String
+  actorRole  String
+  entityType AuditEntityType
+  entityId   String
+  entityName String
+  action     String
+  details    String
+  reason     String?
+  changes    Json?
+  ipAddress  String
+
+  @@index([entityType, entityId])
+  @@index([actorId])
+  @@map("admin_audit_logs")
+}
+
+model ApplicationSetting {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String
+  category    String
+  label       String?
+  description String?
+  isPublic    Boolean  @default(false)
+  updatedAt   DateTime @updatedAt
+  updatedBy   String?
+
+  @@index([category])
+  @@map("application_settings")
+}
+
+// ----------------------------------------------------
+// Customers & KYC Management
+// ----------------------------------------------------
+
+enum CustomerType {
+  INDIVIDUAL
+  BUSINESS
+}
+
+enum CustomerRecordStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+model Customer {
+  id                   String               @id @default(uuid())
+  customerNumber       String               @unique
+  firstName            String
+  middleName           String?
+  lastName             String
+  name                 String
+  dateOfBirth          String
+  gender               String               @default("MALE")
+  maritalStatus        String?
+  nationality          String               @default("Indian")
+  customerType         CustomerType         @default(INDIVIDUAL)
+  mobile               String
+  alternateMobile      String?
+  email                String?
+  preferredContact     String               @default("MOBILE")
+  currentAddress       Json
+  permanentAddress     Json
+  sameAsCurrentAddress Boolean              @default(true)
+  employmentType       String               @default("SALARIED")
+  employerName         String?
+  occupation           String?
+  monthlyIncome        Decimal              @db.Decimal(14, 2)
+  employmentSince      String?
+  bankName             String?
+  accountNumberMasked  String?
+  accountNumber        String?
+  ifscCode             String?
+  branchId             String
+  branchName           String
+  status               CustomerRecordStatus @default(ACTIVE)
+  assignedOfficer      String?
+  activeLoanCount      Int                  @default(0)
+  closedLoanCount      Int                  @default(0)
+  totalOutstanding     Decimal              @default(0.00) @db.Decimal(14, 2)
+  totalOverdue         Decimal              @default(0.00) @db.Decimal(14, 2)
+  cibilScore           Int?
+  panMasked            String?
+  aadhaarMasked        String?
+  archivedReason       String?
+  archivedDate         DateTime?
+  archivedBy           String?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  branch               Branch               @relation(fields: [branchId], references: [id])
+  kycRecords           KycRecord[]
+  documents            DocumentItem[]
+  applications         LoanApplication[]
+  loans                LoanAccount[]
+  disbursements        Disbursement[]
+  payments             Payment[]
+  history              CustomerHistory[]
+  recoveryCases        RecoveryCase[]
+  legalCases           LegalCase[]
+  restructuringRequests RestructuringRequest[]
+  charges              LoanCharge[]
+  waiverRequests       WaiverRequest[]
+  financialAdjustments FinancialAdjustmentRequest[]
+  closureRequests      LoanClosureRequest[]
+  nocRecords           NocRecord[]
+
+  @@map("customers")
+}
+
+model CustomerHistory {
+  id              String   @id @default(uuid())
+  customerId      String
+  timestamp       DateTime @default(now())
+  eventType       String
+  title           String
+  actor           String
+  actorRole       String
+  entityReference String?
+  description     String
+  module          String
+  metadata        Json?
+
+  customer        Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@map("customer_history")
+}
+
+model KycRecord {
+  id                    String   @id @default(uuid())
+  customerId            String
+  customerNumber        String
+  customerName          String
+  customerType          String   @default("INDIVIDUAL")
+  status                String   @default("VERIFIED")
+  kycLevel              String   @default("TIER_3_FULL_CKYC")
+  riskCategory          String   @default("LOW")
+  cKycNumber            String?
+  panRecord             Json?
+  aadhaarRecord         Json?
+  secondaryIdRecord     Json?
+  videoKycRecord        Json?
+  antiMoneyLaundering   Json?
+  riskAssessment        Json?
+  comments              Json?
+  verifiedAt            DateTime?
+  verifiedBy            String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  customer              Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@map("kyc_records")
+}
+
+model DocumentItem {
+  id             String    @id @default(uuid())
+  customerId     String
+  documentNumber String?
+  title          String
+  category       String
+  documentType   String
+  fileFormat     String    @default("PDF")
+  fileSizeKb     Int       @default(0)
+  fileUrl        String?
+  status         String    @default("VERIFIED")
+  uploadedAt     DateTime  @default(now())
+  uploadedBy     String
+  verifiedAt     DateTime?
+  verifiedBy     String?
+  rejectionNote  String?
+  ocrExtracted   Json?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  customer       Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@map("documents")
+}
+
+// ----------------------------------------------------
+// Loan Products
+// ----------------------------------------------------
+
+model LoanProduct {
+  id                    String                    @id @default(uuid())
+  code                  String                    @unique // e.g. HL-PRIME, PL-EXEC, VL-AUTO, BL-SME, GL-GOLD
+  name                  String                    // e.g. Home Loan Prime
+  category              String                    // HOUSING, PERSONAL, VEHICLE, BUSINESS, GOLD, EDUCATION, RETAIL, SME
+  description           String?
+  minAmount             Decimal                   @db.Decimal(14, 2)
+  maxAmount             Decimal                   @db.Decimal(14, 2)
+  minTenureMonths       Int
+  maxTenureMonths       Int
+  baseInterestRate      Decimal                   @db.Decimal(5, 2)
+  maxInterestRate       Decimal?                  @db.Decimal(5, 2)
+  interestMethod        String                    @default("REDUCING_BALANCE") // REDUCING_BALANCE, FLAT_RATE, SIMPLE_INTEREST
+  repaymentFrequency    String                    @default("MONTHLY") // MONTHLY, WEEKLY, BI_WEEKLY, QUARTERLY
+  processingFeePercent  Decimal?                  @default(1.0) @db.Decimal(5, 2)
+  processingFeeFlat     Decimal?                  @default(0.00) @db.Decimal(14, 2)
+  documentationCharges  Decimal?                  @default(750) @db.Decimal(10, 2)
+  allowedFrequencies    String[]                  @default(["MONTHLY"])
+  requiredDocumentTypes Json?
+  eligibilityCriteria   Json?                     // Structured criteria (income, age, employment)
+  minCreditScore        Int?                      @default(650)
+  status                String                    @default("ACTIVE") // DRAFT, ACTIVE, INACTIVE, ARCHIVED
+  version               Int                       @default(1)
+  activeFormVersionId   String?
+  createdBy             String?
+  updatedBy             String?
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
+
+  formTemplates         ApplicationFormTemplate[]
+  applications          LoanApplication[]
+
+  @@index([category])
+  @@index([status])
+  @@map("loan_products")
+}
+
+// ----------------------------------------------------
+// Loan Applications & Workflow
+// ----------------------------------------------------
+
+enum ApplicationStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  DOCUMENT_PENDING
+  CREDIT_ASSESSMENT
+  CREDIT_ASSESSED
+  APPROVED
+  SANCTIONED
+  DISBURSED
+  REJECTED
+  CANCELLED
+}
+
+model LoanApplication {
+  id                         String            @id @default(uuid())
+  applicationNumber          String            @unique
+  customerId                 String
+  customerNumber             String
+  customerName               String
+  customerMobile             String?
+  customerEmail              String?
+  customerKycStatus          String?
+  customerMonthlyIncome      Decimal?          @db.Decimal(14, 2)
+  customerEmploymentType     String?
+  customerExistingLoansCount Int?              @default(0)
+  customerTotalExposure      Decimal?          @db.Decimal(14, 2)
+  productCode                String
+  productName                String
+  requestedAmount            Decimal           @db.Decimal(14, 2)
+  approvedAmount             Decimal?          @db.Decimal(14, 2)
+  sanctionedAmount           Decimal?          @db.Decimal(14, 2)
+  requestedTenureMonths      Int               @default(36)
+  interestRate               Decimal           @db.Decimal(5, 2)
+  repaymentFrequency         String            @default("MONTHLY")
+  preferredRepaymentDate     Int?              @default(5)
+  purpose                    String?
+  purposeCategory            String?           @default("PERSONAL")
+  branchId                   String
+  branchName                 String?
+  loanOfficer                String?
+  assignedOfficerId          String?
+  status                     ApplicationStatus @default(DRAFT)
+  priority                   String            @default("MEDIUM")
+  notes                      String?
+  submissionDeclarations     Json?
+  submittedAt                DateTime?
+  submittedBy                String?
+  rejectionReason            String?
+  cancellationReason         String?
+  productId                  String?
+  createdAt                  DateTime          @default(now())
+  updatedAt                  DateTime          @updatedAt
+
+  customer                   Customer          @relation(fields: [customerId], references: [id])
+  product                    LoanProduct?      @relation(fields: [productId], references: [id])
+  coApplicants               CoApplicant[]
+  guarantors                 Guarantor[]
+  documents                  ApplicationDocument[]
+  history                    ApplicationHistory[]
+  creditAssessments          CreditAssessment[]
+  approvals                  ApprovalRecord[]
+  sanctions                  Sanction[]
+  loans                      LoanAccount[]
+  disbursements              Disbursement[]
+  formResponse               LoanApplicationFormResponse?
+
+  @@index([productId])
+  @@map("loan_applications")
+}
+
+model CoApplicant {
+  id                 String          @id @default(uuid())
+  applicationId      String
+  customerId         String
+  customerNumber     String
+  customerName       String
+  mobile             String
+  relationship       String
+  kycStatus          String          @default("VERIFIED")
+  monthlyIncome      Decimal?        @db.Decimal(14, 2)
+  panMasked          String?
+  existingLoansCount Int?            @default(0)
+  totalOutstanding   Decimal?        @db.Decimal(14, 2)
+  notes              String?
+  addedAt            DateTime        @default(now())
+  addedBy            String
+
+  application        LoanApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+  @@map("co_applicants")
+}
+
+model Guarantor {
+  id                String          @id @default(uuid())
+  applicationId     String
+  customerId        String
+  customerNumber    String
+  customerName      String
+  mobile            String
+  relationship      String
+  guaranteeType     String          @default("INDIVIDUAL")
+  kycStatus         String          @default("VERIFIED")
+  netWorthEstimated Decimal?        @db.Decimal(14, 2)
+  panMasked         String?
+  notes             String?
+  addedAt           DateTime        @default(now())
+  addedBy           String
+
+  application       LoanApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+  @@map("guarantors")
+}
+
+model ApplicationDocument {
+  id              String          @id @default(uuid())
+  applicationId   String
+  documentType    String
+  documentTitle   String
+  source          String          @default("APPLICATION_UPLOAD")
+  documentVaultId String?
+  fileName        String?
+  fileFormat      String?         @default("PDF")
+  fileSizeKb      Int?            @default(0)
+  status          String          @default("UPLOADED")
+  isMandatory     Boolean         @default(true)
+  uploadedAt      DateTime?       @default(now())
+  uploadedBy      String?
+  verifiedAt      DateTime?
+  verifiedBy      String?
+  rejectionReason String?
+  notes           String?
+
+  application     LoanApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+  @@map("application_documents")
+}
+
+model ApplicationHistory {
+  id            String          @id @default(uuid())
+  applicationId String
+  eventType     String?
+  action        String?
+  actor         String?
+  actorName     String?
+  actorRole     String
+  timestamp     DateTime        @default(now())
+  description   String?
+  details       String?
+  notes         String?
+  metadata      Json?
+
+  application   LoanApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+  @@map("application_history")
+}
+
+// ----------------------------------------------------
+// Credit Assessment
+// ----------------------------------------------------
+
+model CreditAssessment {
+  id                   String          @id @default(uuid())
+  assessmentNumber     String          @unique
+  applicationId        String
+  applicationNumber    String
+  customerId           String
+  customerNumber       String
+  customerName         String
+  status               String          @default("IN_PROGRESS")
+  riskCategory         String          @default("LOW")
+  creditScore          Int             @default(750)
+  monthlyIncome        Decimal         @db.Decimal(14, 2)
+  existingObligations  Decimal         @default(0.00) @db.Decimal(14, 2)
+  proposedEmi          Decimal         @db.Decimal(14, 2)
+  foirPercent          Decimal         @db.Decimal(5, 2)
+  maxEligibleAmount    Decimal         @db.Decimal(14, 2)
+  recommendedAmount    Decimal         @db.Decimal(14, 2)
+  recommendedTenure    Int
+  recommendedRate      Decimal         @db.Decimal(5, 2)
+  recommendationStatus String          @default("RECOMMEND_APPROVAL")
+  rationale            String?
+  bureauDetails        Json?
+  financialRatios      Json?
+  obligations          Json?
+  conditions           Json?
+  deviations           Json?
+  policyRules          Json?
+  assignedOfficer      String?
+  completedAt          DateTime?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  application          LoanApplication @relation(fields: [applicationId], references: [id])
+
+  @@index([applicationId])
+  @@map("credit_assessments")
+}
+
+// ----------------------------------------------------
+// Approvals & Approval Matrix
+// ----------------------------------------------------
+
+model ApprovalRecord {
+  id                 String              @id @default(uuid())
+  approvalNumber     String              @unique
+  applicationId      String
+  applicationNumber  String
+  assessmentId       String?
+  customerId         String
+  customerName       String
+  productCode        String
+  productName        String
+  requestedAmount    Decimal             @db.Decimal(14, 2)
+  recommendedAmount  Decimal             @db.Decimal(14, 2)
+  approvedAmount     Decimal?            @db.Decimal(14, 2)
+  interestRate       Decimal             @db.Decimal(5, 2)
+  tenureMonths       Int
+  status             String              @default("PENDING")
+  requiredRoleLevel  String?
+  assignedToRole     String?
+  assignedToUser     String?
+  currentStage       String?             @default("CREDIT_COMMITTEE")
+  approvalDecision   String?
+  decisionReason     String?
+  conditions         ApprovalCondition[]
+  exceptions         Json?
+  decisionTrail      Json?
+  sanctionGenerated  Boolean             @default(false)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  application        LoanApplication     @relation(fields: [applicationId], references: [id])
+  sanctions          Sanction[]
+
+  @@index([applicationId])
+  @@map("approval_records")
+}
+
+model ApprovalCondition {
+  id           String         @id @default(uuid())
+  approvalId   String
+  category     String
+  conditionText String
+  status       String         @default("PENDING")
+  addedBy      String
+  addedAt      DateTime       @default(now())
+  resolvedBy   String?
+  resolvedAt   DateTime?
+  resolution   String?
+
+  approval     ApprovalRecord @relation(fields: [approvalId], references: [id], onDelete: Cascade)
+
+  @@index([approvalId])
+  @@map("approval_conditions")
+}
+
+model ApprovalMatrixRule {
+  id                String   @id @default(uuid())
+  ruleCode          String   @unique
+  roleName          String
+  maxApprovalLimit  Decimal  @db.Decimal(16, 2)
+  allowedProducts   String[]
+  requiresCommittee Boolean  @default(false)
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("approval_matrix_rules")
+}
+
+// ----------------------------------------------------
+// Sanctions & Sanction Letters
+// ----------------------------------------------------
+
+model Sanction {
+  id                    String                  @id @default(uuid())
+  sanctionNumber        String                  @unique
+  applicationId         String
+  applicationNumber     String
+  approvalId            String?
+  approvalNumber        String?
+  customerId            String
+  customerNumber        String
+  customerName          String
+  customerMobile        String?
+  customerEmail         String?
+  customerAddress       String?
+  branchId              String
+  branchName            String?
+  productCode           String
+  productName           String
+  status                String                  @default("DRAFT")
+  requestedAmount       Decimal                 @db.Decimal(14, 2)
+  approvedAmount        Decimal                 @db.Decimal(14, 2)
+  approvedTenureMonths  Int
+  approvedInterestRate  Decimal                 @db.Decimal(5, 2)
+  finalApproverName     String?
+  finalApproverRole     String?
+  approvedDate          String?
+  terms                 Json?
+  conditions            SanctionCondition[]
+  letters               SanctionLetterVersion[]
+  auditTrail            Json?
+  confirmedBy           String?
+  confirmedAt           DateTime?
+  expiryDate            DateTime?
+  letterGeneratedAt     DateTime?
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+
+  application           LoanApplication         @relation(fields: [applicationId], references: [id])
+  approval              ApprovalRecord?         @relation(fields: [approvalId], references: [id])
+  disbursements         Disbursement[]
+  loans                 LoanAccount[]
+
+  @@index([applicationId])
+  @@index([approvalId])
+  @@map("sanctions")
+}
+
+model SanctionCondition {
+  id             String   @id @default(uuid())
+  sanctionId     String
+  category       String
+  description    String
+  status         String   @default("PENDING")
+  requiredBefore String   @default("DISBURSEMENT")
+  dueDate        String?
+  owner          String?
+  source         String?  @default("SYSTEM")
+  addedBy        String?
+  addedAt        DateTime @default(now())
+  resolvedBy     String?
+  resolvedAt     DateTime?
+
+  sanction       Sanction @relation(fields: [sanctionId], references: [id], onDelete: Cascade)
+
+  @@index([sanctionId])
+  @@map("sanction_conditions")
+}
+
+model SanctionLetterVersion {
+  id              String    @id @default(uuid())
+  sanctionId      String
+  version         Int       @default(1)
+  letterRefNumber String?
+  templateId      String?
+  status          String    @default("GENERATED")
+  htmlContent     String?   @db.Text
+  generatedBy     String
+  generatedAt     DateTime  @default(now())
+  issuedBy        String?
+  issuedAt        DateTime?
+  downloadUrl     String?
+
+  sanction        Sanction  @relation(fields: [sanctionId], references: [id], onDelete: Cascade)
+
+  @@index([sanctionId])
+  @@map("sanction_letters")
+}
+
+// ----------------------------------------------------
+// Disbursements & Payment Transactions
+// ----------------------------------------------------
+
+enum DisbursementStatus {
+  DRAFT
+  VERIFICATION_PENDING
+  READY
+  PENDING_APPROVAL
+  APPROVED
+  PROCESSING
+  SUCCESSFUL
+  RETURNED
+  REJECTED
+  FAILED
+  REVERSED
+  CANCELLED
+}
+
+enum DisbursementType {
+  FULL
+  PARTIAL
+}
+
+enum TransactionStatus {
+  PENDING
+  PROCESSING
+  SUCCESSFUL
+  FAILED
+  REVERSED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  NEFT
+  RTGS
+  IMPS
+  DIRECT_TRANSFER
+  ACH
+}
+
+model Disbursement {
+  id                   String                    @id @default(uuid())
+  disbursementNumber   String                    @unique
+  applicationId        String
+  applicationNumber    String
+  sanctionId           String
+  sanctionNumber       String
+  customerId           String
+  customerNumber       String
+  customerName         String
+  customerMobile       String?
+  productCode          String
+  productName          String
+  branchId             String
+  branchName           String?
+  sanctionAmount       Decimal                   @db.Decimal(14, 2)
+  totalDisbursedAmount Decimal                   @default(0.00) @db.Decimal(14, 2)
+  remainingAmount      Decimal                   @db.Decimal(14, 2)
+  status               DisbursementStatus        @default(DRAFT)
+  firstDisbursedAt     DateTime?
+  lastDisbursedAt      DateTime?
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+
+  customer             Customer                  @relation(fields: [customerId], references: [id])
+  application          LoanApplication           @relation(fields: [applicationId], references: [id])
+  sanction             Sanction                  @relation(fields: [sanctionId], references: [id])
+  requests             DisbursementRequest[]
+  beneficiaries        DisbursementBeneficiary[]
+  transactions         DisbursementTransaction[]
+  history              DisbursementHistory[]
+  loans                LoanAccount[]
+
+  @@index([applicationId])
+  @@index([sanctionId])
+  @@index([customerId])
+  @@map("disbursements")
+}
+
+model DisbursementRequest {
+  id                  String                    @id @default(uuid())
+  requestNumber       String                    @unique
+  disbursementId      String
+  applicationId       String
+  sanctionId          String
+  requestedAmount     Decimal                   @db.Decimal(14, 2)
+  disbursementType    DisbursementType          @default(FULL)
+  beneficiaryId       String?
+  paymentMethod       PaymentMethod             @default(NEFT)
+  purpose             String?
+  supportingDocuments Json?
+  notes               String?
+  status              DisbursementStatus        @default(DRAFT)
+  readinessChecks     Json?
+  requestedBy         String
+  requestedByName     String
+  requestedAt         DateTime                  @default(now())
+  assignedTo          String?
+  assignedToName      String?
+  assignedAt          DateTime?
+  reviewedBy          String?
+  reviewedAt          DateTime?
+  approvedBy          String?
+  approvedByName      String?
+  approvedAt          DateTime?
+  approvalNotes       String?
+  rejectedBy          String?
+  rejectedByName      String?
+  rejectedAt          DateTime?
+  rejectionReason     String?
+  returnedBy          String?
+  returnedByName      String?
+  returnedAt          DateTime?
+  returnReason        String?
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+
+  disbursement        Disbursement              @relation(fields: [disbursementId], references: [id], onDelete: Cascade)
+  beneficiary         DisbursementBeneficiary?  @relation(fields: [beneficiaryId], references: [id])
+  transactions        DisbursementTransaction[]
+
+  @@index([disbursementId])
+  @@map("disbursement_requests")
+}
+
+model DisbursementBeneficiary {
+  id                   String                @id @default(uuid())
+  disbursementId       String
+  beneficiaryType      String                @default("PRIMARY_BORROWER")
+  beneficiaryName      String
+  bankName             String
+  accountNumber        String
+  accountNumberMasked  String
+  ifscCode             String
+  accountType          String                @default("SAVINGS")
+  verificationStatus   String                @default("VERIFIED")
+  verificationSource   String?               @default("KYC_BANK_PROOF")
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+
+  disbursement         Disbursement          @relation(fields: [disbursementId], references: [id], onDelete: Cascade)
+  requests             DisbursementRequest[]
+
+  @@index([disbursementId])
+  @@map("disbursement_beneficiaries")
+}
+
+model DisbursementTransaction {
+  id                             String                @id @default(uuid())
+  transactionReference           String                @unique
+  disbursementId                 String
+  requestId                      String?
+  amount                         Decimal               @db.Decimal(14, 2)
+  paymentMethod                  PaymentMethod         @default(NEFT)
+  status                         TransactionStatus     @default(PENDING)
+  beneficiaryName                String
+  beneficiaryAccountNumberMasked String
+  beneficiaryIfsc                String
+  bankName                       String
+  externalReference              String?
+  utrNumber                      String?
+  processingStartedAt            DateTime?
+  completedAt                    DateTime?
+  failedAt                       DateTime?
+  failureReason                  String?
+  reversedAt                     DateTime?
+  reversedBy                     String?
+  reversalReason                 String?
+  createdAt                      DateTime              @default(now())
+  updatedAt                      DateTime              @updatedAt
+
+  disbursement                   Disbursement          @relation(fields: [disbursementId], references: [id], onDelete: Cascade)
+  request                        DisbursementRequest?  @relation(fields: [requestId], references: [id])
+
+  @@index([disbursementId])
+  @@index([requestId])
+  @@map("disbursement_transactions")
+}
+
+model DisbursementHistory {
+  id             String       @id @default(uuid())
+  disbursementId String
+  requestId      String?
+  timestamp      DateTime     @default(now())
+  event          String
+  actor          String
+  actorName      String
+  actorRole      String
+  previousState  String?
+  newState       String?
+  amount         Decimal?     @db.Decimal(14, 2)
+  notes          String?
+  reference      String?
+  metadata       Json?
+
+  disbursement   Disbursement @relation(fields: [disbursementId], references: [id], onDelete: Cascade)
+
+  @@index([disbursementId])
+  @@map("disbursement_history")
+}
+
+// ----------------------------------------------------
+// Loan Accounts & Servicing (Batch 10)
+// ----------------------------------------------------
+
+enum LoanStatusEnum {
+  PENDING_ACTIVATION
+  ACTIVE
+  PARTIALLY_DISBURSED
+  OVERDUE
+  MATURED
+  FORECLOSURE_PENDING
+  CLOSED
+  CANCELLED
+  WRITTEN_OFF
+}
+
+enum ScheduleStatusEnum {
+  FUTURE
+  DUE
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  WAIVED
+  CANCELLED
+}
+
+enum ScheduleVersionStatusEnum {
+  ACTIVE
+  SUPERSEDED
+  DRAFT
+}
+
+model LoanAccount {
+  id                         String                    @id @default(uuid())
+  accountNumber              String                    @unique
+  customerId                 String
+  customerNumber             String?
+  customerName               String
+  customerMobile             String?
+  customerEmail              String?
+  customerAddress            String?
+  applicationId              String?
+  applicationNumber          String?
+  approvalId                 String?
+  approvalNumber             String?
+  sanctionId                 String?
+  sanctionNumber             String?
+  primaryDisbursementId      String?
+  primaryDisbursementNumber  String?
+  productCode                String
+  productName                String
+  branchId                   String                    @default("br_panjim")
+  branchName                 String?
+  assignedOfficer            String?                   @default("Alex Morgan")
+  assignedOfficerId          String?                   @default("usr_officer_01")
+  originalPrincipal          Decimal                   @db.Decimal(14, 2)
+  sanctionedAmount           Decimal?                  @db.Decimal(14, 2)
+  disbursedPrincipal         Decimal                   @default(0.00) @db.Decimal(14, 2)
+  outstandingPrincipal       Decimal                   @db.Decimal(14, 2)
+  interestOutstanding        Decimal                   @default(0.00) @db.Decimal(14, 2)
+  feeOutstanding             Decimal                   @default(0.00) @db.Decimal(14, 2)
+  penaltyOutstanding         Decimal                   @default(0.00) @db.Decimal(14, 2)
+  totalOutstanding           Decimal                   @db.Decimal(14, 2)
+  totalPaidAmount            Decimal                   @default(0.00) @db.Decimal(14, 2)
+  totalPrincipalPaid         Decimal                   @default(0.00) @db.Decimal(14, 2)
+  totalInterestPaid          Decimal                   @default(0.00) @db.Decimal(14, 2)
+  totalFeesPaid              Decimal                   @default(0.00) @db.Decimal(14, 2)
+  interestRate               Decimal                   @db.Decimal(5, 2)
+  interestMethod             String                    @default("REDUCING_BALANCE")
+  repaymentFrequency         String                    @default("MONTHLY")
+  emiAmount                  Decimal                   @db.Decimal(14, 2)
+  totalTenureMonths          Int
+  remainingTenureMonths      Int
+  totalInstalments           Int                       @default(36)
+  remainingInstalments       Int                       @default(36)
+  disbursementDate           String
+  disbursedDate              DateTime?
+  loanStartDate              String                    @default("2026-08-28")
+  firstDueDate               String                    @default("2026-10-05")
+  maturityDate               String
+  nextDueDate                String
+  dpd                        Int                       @default(0)
+  dpdBucket                  String                    @default("CURRENT")
+  overdueAmount              Decimal                   @default(0.00) @db.Decimal(14, 2)
+  status                     LoanStatusEnum            @default(ACTIVE)
+  currentScheduleVersion     Int                       @default(1)
+  createdAt                  DateTime                  @default(now())
+  createdBy                  String                    @default("System / Disbursement")
+  updatedAt                  DateTime                  @updatedAt
+  updatedBy                  String?
+
+  customer                   Customer                  @relation(fields: [customerId], references: [id])
+  application                LoanApplication?          @relation(fields: [applicationId], references: [id])
+  sanction                   Sanction?                 @relation(fields: [sanctionId], references: [id])
+  disbursement               Disbursement?             @relation(fields: [primaryDisbursementId], references: [id])
+  branch                     Branch                    @relation(fields: [branchId], references: [id])
+  scheduleVersions           RepaymentScheduleVersion[]
+  schedules                  RepaymentSchedule[]
+  charges                    LoanCharge[]
+  transactions               LoanTransaction[]
+  payments                   Payment[]
+  paymentAllocations         PaymentAllocation[]
+  repaymentSettings          LoanRepaymentSetting?
+  history                    LoanHistory[]
+  recoveryCases              RecoveryCase[]
+  legalCases                 LegalCase[]
+  legalNotices               LegalNotice[]
+  restructuringRequests      RestructuringRequest[]
+  waiverRequests             WaiverRequest[]
+  financialAdjustments       FinancialAdjustmentRequest[]
+  adjustmentReversals        AdjustmentReversal[]
+  closureRequests            LoanClosureRequest[]
+  foreclosureQuotes          ForeclosureQuote[]
+  settlementProposals        SettlementProposal[]
+  nocRecords                 NocRecord[]
+
+  @@index([customerId])
+  @@index([applicationId])
+  @@index([sanctionId])
+  @@index([primaryDisbursementId])
+  @@index([branchId])
+  @@index([status])
+  @@map("loan_accounts")
+}
+
+model RepaymentScheduleVersion {
+  id                String                    @id @default(uuid())
+  loanId            String
+  version           Int                       @default(1)
+  reason            String
+  effectiveDate     String
+  totalInstalments  Int
+  totalPrincipal    Decimal                   @db.Decimal(14, 2)
+  totalInterest     Decimal                   @db.Decimal(14, 2)
+  totalAmount       Decimal                   @db.Decimal(14, 2)
+  status            ScheduleVersionStatusEnum @default(ACTIVE)
+  createdAt         DateTime                  @default(now())
+  createdBy         String
+
+  loan              LoanAccount               @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  schedules         RepaymentSchedule[]
+
+  @@index([loanId])
+  @@map("repayment_schedule_versions")
+}
+
+model RepaymentSchedule {
+  id                String             @id @default(uuid())
+  loanId            String
+  versionId         String
+  versionNumber     Int                @default(1)
+  instalmentNumber  Int
+  dueDate           String
+  openingPrincipal  Decimal            @db.Decimal(14, 2)
+  principalDue      Decimal            @db.Decimal(14, 2)
+  interestDue       Decimal            @db.Decimal(14, 2)
+  feesDue           Decimal            @default(0.00) @db.Decimal(14, 2)
+  instalmentAmount  Decimal            @db.Decimal(14, 2)
+  closingPrincipal  Decimal            @db.Decimal(14, 2)
+  principalPaid     Decimal            @default(0.00) @db.Decimal(14, 2)
+  interestPaid      Decimal            @default(0.00) @db.Decimal(14, 2)
+  feesPaid          Decimal            @default(0.00) @db.Decimal(14, 2)
+  totalPaid         Decimal            @default(0.00) @db.Decimal(14, 2)
+  outstandingAmount Decimal            @db.Decimal(14, 2)
+  status            ScheduleStatusEnum @default(FUTURE)
+  dpd               Int                @default(0)
+  paidDate          String?
+  paymentReference  String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  loan              LoanAccount        @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  scheduleVersion   RepaymentScheduleVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  allocations       PaymentAllocation[]
+
+  @@index([loanId])
+  @@index([versionId])
+  @@index([dueDate])
+  @@map("repayment_schedules")
+}
+
+model LoanCharge {
+  id                String          @id @default(uuid())
+  chargeNumber      String?         @unique
+  loanId            String
+  customerId        String?
+  accountNumber     String?
+  customerName      String?
+  chargeTypeId      String?
+  chargeCode        String
+  chargeName        String
+  chargeType        String
+  calculationType   String          @default("FIXED")
+  rateOrValue       Decimal?        @db.Decimal(10, 2)
+  sourceEvent       String?         // e.g. PAYMENT_RETURN_BOUNCE, DPD_OVERDUE_30, LEGAL_NOTICE_DISPATCH, MANUAL_ASSESSMENT
+  eventReferenceId  String?         // Idempotency key
+  amount            Decimal         @db.Decimal(14, 2)
+  taxAmount         Decimal         @default(0.00) @db.Decimal(14, 2)
+  totalAmount       Decimal         @db.Decimal(14, 2)
+  paidAmount        Decimal         @default(0.00) @db.Decimal(14, 2)
+  waivedAmount      Decimal         @default(0.00) @db.Decimal(14, 2)
+  outstandingAmount Decimal?        @db.Decimal(14, 2)
+  chargeTiming      String          @default("ORIGINATION_DEDUCTED")
+  dueDate           String?
+  status            String          @default("APPLIED") // PENDING, APPLIED, PARTIALLY_PAID, PAID, WAIVED, REVERSED, CANCELLED
+  source            String          @default("PRODUCT_CONFIG")
+  appliedAt         DateTime?       @default(now())
+  reversedAt        DateTime?
+  reversedBy        String?
+  reversalReason    String?
+  notes             String?
+  createdAt         DateTime        @default(now())
+  createdBy         String
+  updatedAt         DateTime?       @updatedAt
+
+  loan              LoanAccount     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  customer          Customer?       @relation(fields: [customerId], references: [id])
+  waivers           WaiverRequest[]
+
+  @@index([loanId])
+  @@index([customerId])
+  @@index([chargeNumber])
+  @@index([eventReferenceId])
+  @@index([status])
+  @@map("loan_charges")
+}
+
+model LoanRepaymentSetting {
+  id                 String   @id @default(uuid())
+  loanId             String   @unique
+  repaymentFrequency String   @default("MONTHLY")
+  paymentMethod      String   @default("NACH_EMANDATE")
+  mandateStatus      String   @default("ACTIVE")
+  mandateReference   String?
+  bankAccountMasked  String?
+  bankName           String?
+  ifscCode           String?
+  accountHolderName  String?
+  preferredDebitDate Int      @default(5)
+  gracePeriodDays    Int      @default(3)
+  updatedAt          DateTime @updatedAt
+  updatedBy          String   @default("Operations Officer")
+
+  loan               LoanAccount @relation(fields: [loanId], references: [id], onDelete: Cascade)
+
+  @@map("loan_repayment_settings")
+}
+
+model LoanTransaction {
+  id                   String   @id @default(uuid())
+  loanId               String
+  accountNumber        String
+  transactionReference String   @unique
+  transactionType      String   @default("DISBURSEMENT")
+  amount               Decimal  @db.Decimal(14, 2)
+  principalPortion     Decimal  @default(0.00) @db.Decimal(14, 2)
+  interestPortion      Decimal  @default(0.00) @db.Decimal(14, 2)
+  feePortion           Decimal  @default(0.00) @db.Decimal(14, 2)
+  penaltyPortion       Decimal  @default(0.00) @db.Decimal(14, 2)
+  status               String   @default("SUCCESSFUL")
+  referenceId          String?
+  utrNumber            String?
+  paymentMethod        String?
+  notes                String?
+  transactionDate      String
+  createdAt            DateTime @default(now())
+  createdBy            String
+
+  loan                 LoanAccount @relation(fields: [loanId], references: [id], onDelete: Cascade)
+
+  @@index([loanId])
+  @@index([transactionReference])
+  @@map("loan_transactions")
+}
+
+model LoanHistory {
+  id            String   @id @default(uuid())
+  loanId        String
+  timestamp     DateTime @default(now())
+  action        String
+  actor         String
+  actorName     String
+  actorRole     String
+  previousState String?
+  newState      String?
+  amount        Decimal? @db.Decimal(14, 2)
+  reference     String?
+  reason        String?
+  notes         String?
+  metadata      Json?
+
+  loan          LoanAccount @relation(fields: [loanId], references: [id], onDelete: Cascade)
+
+  @@index([loanId])
+  @@map("loan_history")
+}
+
+// ----------------------------------------------------
+// Repayments, Payment Allocations & Receipts (Batch 11)
+// ----------------------------------------------------
+
+enum PaymentStatusEnum {
+  RECEIVED
+  PENDING_VERIFICATION
+  VERIFIED
+  POSTED
+  PARTIALLY_ALLOCATED
+  FULLY_ALLOCATED
+  FAILED
+  REVERSED
+  CANCELLED
+}
+
+enum PaymentAllocationTypeEnum {
+  PENALTY
+  FEE
+  INTEREST
+  PRINCIPAL
+  ADVANCE_PRINCIPAL
+  UNALLOCATED
+}
+
+model Payment {
+  id                  String                    @id @default(uuid())
+  paymentNumber       String                    @unique
+  loanId              String
+  accountNumber       String
+  customerId          String
+  customerNumber      String?
+  customerName        String
+  amount              Decimal                   @db.Decimal(14, 2)
+  allocatedAmount     Decimal                   @default(0.00) @db.Decimal(14, 2)
+  unallocatedAmount   Decimal                   @default(0.00) @db.Decimal(14, 2)
+  paymentDate         String
+  valueDate           String
+  postingDate         DateTime?
+  paymentMethod       String                    @default("NACH_EMANDATE")
+  referenceNumber     String?
+  bankName            String?
+  channel             String?
+  status              PaymentStatusEnum         @default(RECEIVED)
+  idempotencyKey      String?                   @unique
+  notes               String?
+  supportingDocument  Json?
+  receivedBy          String                    @default("usr_ops_01")
+  receivedByName      String                    @default("Operations Officer")
+  verifiedBy          String?
+  verifiedByName      String?
+  verifiedAt          DateTime?
+  postedBy            String?
+  postedByName        String?
+  postedAt            DateTime?
+  reversedBy          String?
+  reversedByName      String?
+  reversedAt          DateTime?
+  reversalReason      String?
+  receiptNumber       String?                   @unique
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+
+  loan                LoanAccount               @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  customer            Customer                  @relation(fields: [customerId], references: [id])
+  allocations         PaymentAllocation[]
+  receipt             PaymentReceipt?
+  reversal            PaymentReversal?
+  history             PaymentHistory[]
+  unallocated         UnallocatedPayment?
+
+  @@index([loanId])
+  @@index([customerId])
+  @@index([accountNumber])
+  @@index([paymentDate])
+  @@index([status])
+  @@map("payments")
+}
+
+model PaymentAllocation {
+  id             String                    @id @default(uuid())
+  paymentId      String
+  loanId         String
+  scheduleItemId String?
+  chargeId       String?
+  allocationType PaymentAllocationTypeEnum @default(PRINCIPAL)
+  amount         Decimal                   @db.Decimal(14, 2)
+  status         String                    @default("ACTIVE")
+  createdAt      DateTime                  @default(now())
+  createdBy      String
+
+  payment        Payment                   @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  loan           LoanAccount               @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  scheduleItem   RepaymentSchedule?        @relation(fields: [scheduleItemId], references: [id], onDelete: SetNull)
+
+  @@index([paymentId])
+  @@index([loanId])
+  @@index([scheduleItemId])
+  @@map("payment_allocations")
+}
+
+model PaymentReceipt {
+  id                String   @id @default(uuid())
+  receiptNumber     String   @unique
+  paymentId         String   @unique
+  loanId            String
+  customerId        String
+  amount            Decimal  @db.Decimal(14, 2)
+  paymentDate       String
+  valueDate         String
+  paymentMethod     String
+  referenceNumber   String?
+  allocationSummary Json?
+  generatedAt       DateTime @default(now())
+  generatedBy       String
+  pdfUrl            String?
+
+  payment           Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
+  @@index([receiptNumber])
+  @@map("payment_receipts")
+}
+
+model PaymentReversal {
+  id                 String   @id @default(uuid())
+  reversalNumber     String   @unique
+  paymentId          String   @unique
+  loanId             String
+  amount             Decimal  @db.Decimal(14, 2)
+  reason             String
+  notes              String?
+  reversedBy         String
+  reversedByName     String
+  reversedAt         DateTime @default(now())
+  compensatingTxnId  String?
+
+  payment            Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
+  @@map("payment_reversals")
+}
+
+model PaymentHistory {
+  id            String   @id @default(uuid())
+  paymentId     String
+  timestamp     DateTime @default(now())
+  event         String
+  actor         String
+  actorName     String
+  actorRole     String
+  previousState String?
+  newState      String?
+  amount        Decimal? @db.Decimal(14, 2)
+  reference     String?
+  reason        String?
+  notes         String?
+  metadata      Json?
+
+  payment       Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
+  @@map("payment_history")
+}
+
+model UnallocatedPayment {
+  id              String   @id @default(uuid())
+  paymentId       String   @unique
+  loanId          String
+  customerId      String
+  totalAmount     Decimal  @db.Decimal(14, 2)
+  allocatedAmount Decimal  @default(0.00) @db.Decimal(14, 2)
+  remainingAmount Decimal  @db.Decimal(14, 2)
+  status          String   @default("UNALLOCATED")
+  reason          String?
+  resolvedAt      DateTime?
+  resolvedBy      String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  payment         Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
+  @@index([loanId])
+  @@map("unallocated_payments")
+}
+
+// ----------------------------------------------------
+// Recovery, Escalations & Legal Collections (Batch 13)
+// ----------------------------------------------------
+
+enum RecoveryStageEnum {
+  EARLY_RECOVERY
+  HARD_RECOVERY
+  PRE_LEGAL
+  LEGAL_ACTION
+  RESOLVED
+  TRANSFERRED_TO_RESTRUCTURING
+}
+
+enum RecoveryStatusEnum {
+  OPEN
+  ASSIGNED
+  IN_PROGRESS
+  CUSTOMER_CONTACTED
+  NEGOTIATION
+  LEGAL_REVIEW
+  LEGAL_ACTION
+  CURED
+  RESOLVED
+  CLOSED
+  CANCELLED
+}
+
+enum RecoveryPriorityEnum {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum LegalCaseTypeEnum {
+  DEMAND_NOTICE_138
+  CIVIL_RECOVERY_SUIT
+  ARBITRATION_PROCEEDING
+  SARFAESI_ACTION
+  SECTION_25_PAYMENT_ACT
+  INSOLVENCY_IBC
+}
+
+enum LegalCaseStatusEnum {
+  DRAFT_REVIEW
+  APPROVED
+  NOTICE_ISSUED
+  FILED_IN_COURT
+  HEARING_SCHEDULED
+  SUMMONS_ISSUED
+  ORDER_OBTAINED
+  EXECUTION_PENDING
+  SETTLED
+  WITHDRAWN
+  CLOSED
+}
+
+enum LegalNoticeStatusEnum {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  DISPATCHED
+  DELIVERED
+  RETURNED_UNDELIVERED
+  CANCELLED
+}
+
+model RecoveryCase {
+  id                   String                 @id @default(uuid())
+  recoveryCaseNumber   String                 @unique
+  loanId               String
+  accountNumber        String
+  customerId           String
+  customerNumber       String?
+  customerName         String
+  dpd                  Int                    @default(0)
+  dpdBucket            String                 @default("SMA_2")
+  overdueAmount        Decimal                @db.Decimal(14, 2)
+  totalOutstanding     Decimal                @db.Decimal(14, 2)
+  targetAmount         Decimal?               @db.Decimal(14, 2)
+  collectedAmount      Decimal                @default(0.00) @db.Decimal(14, 2)
+  recoveryStage        RecoveryStageEnum      @default(EARLY_RECOVERY)
+  status               RecoveryStatusEnum     @default(OPEN)
+  priority             RecoveryPriorityEnum   @default(MEDIUM)
+  assignedOfficerId    String?
+  assignedOfficerName  String?
+  assignedTeam         String?
+  branchId             String                 @default("br_panjim")
+  branchName           String?
+  openedDate           String
+  lastActionDate       String?
+  nextAction           String?
+  nextActionDate       String?
+  curedDate            DateTime?
+  resolutionOutcome    String?
+  resolutionNotes      String?
+  notes                String?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+
+  loan                 LoanAccount            @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  customer             Customer               @relation(fields: [customerId], references: [id])
+  actions              RecoveryAction[]
+  escalations          RecoveryEscalation[]
+  assignments          RecoveryAssignment[]
+  negotiations         RecoveryNegotiation[]
+  legalReviews         LegalReview[]
+  legalCases           LegalCase[]
+  legalNotices         LegalNotice[]
+
+  @@index([loanId])
+  @@index([customerId])
+  @@index([accountNumber])
+  @@index([recoveryStage])
+  @@index([status])
+  @@index([priority])
+  @@index([assignedOfficerId])
+  @@map("recovery_cases")
+}
+
+model RecoveryAction {
+  id               String       @id @default(uuid())
+  recoveryCaseId   String
+  loanId           String
+  actionType       String       // PHONE_CALL, FIELD_VISIT, DEMAND_NOTICE, CUSTOMER_MEETING, NEGOTIATION, FOLLOW_UP, ADDRESS_VERIFICATION, REFERENCE_CONTACT
+  actionDate       String
+  officerId        String
+  officerName      String
+  officerRole      String
+  outcome          String       // CONTACTED, NO_ANSWER, REFUSED_PAYMENT, PTP_OBTAINED, PARTIAL_PAYMENT_PROMISE, FINANCIAL_HARDSHIP, DISPUTE_RAISED, ADDRESS_UNTRACEABLE, LEGAL_RECOMMENDED
+  outcomeNotes     String?
+  promisedAmount   Decimal?     @db.Decimal(14, 2)
+  promisedDate     String?
+  nextAction       String?
+  nextActionDate   String?
+  location         String?
+  geoCoordinates   String?
+  createdAt        DateTime     @default(now())
+  createdBy        String
+
+  recoveryCase     RecoveryCase @relation(fields: [recoveryCaseId], references: [id], onDelete: Cascade)
+
+  @@index([recoveryCaseId])
+  @@index([loanId])
+  @@map("recovery_actions")
+}
+
+model RecoveryEscalation {
+  id               String       @id @default(uuid())
+  escalationNumber String       @unique
+  recoveryCaseId   String
+  loanId           String
+  previousStage    String
+  newStage         String
+  reason           String
+  triggeredBy      String
+  triggeredByName  String
+  triggeredByRole  String
+  triggeredAt      DateTime     @default(now())
+  effectiveDate    String
+  assignedTeam     String?
+  assignedOfficer  String?
+  status           String       @default("COMPLETED")
+  notes            String?
+
+  recoveryCase     RecoveryCase @relation(fields: [recoveryCaseId], references: [id], onDelete: Cascade)
+
+  @@index([recoveryCaseId])
+  @@index([loanId])
+  @@map("recovery_escalations")
+}
+
+model RecoveryAssignment {
+  id               String       @id @default(uuid())
+  recoveryCaseId   String
+  loanId           String
+  officerId        String
+  officerName      String
+  teamName         String?
+  branchId         String?
+  branchName       String?
+  region           String?
+  assignedAt       DateTime     @default(now())
+  assignedBy       String
+  assignedByName   String
+  reason           String?
+  status           String       @default("ACTIVE")
+
+  recoveryCase     RecoveryCase @relation(fields: [recoveryCaseId], references: [id], onDelete: Cascade)
+
+  @@index([recoveryCaseId])
+  @@map("recovery_assignments")
+}
+
+model RecoveryNegotiation {
+  id               String       @id @default(uuid())
+  recoveryCaseId   String
+  loanId           String
+  proposedAmount   Decimal      @db.Decimal(14, 2)
+  proposedDate     String
+  frequency        String       @default("MONTHLY")
+  reason           String
+  officerId        String
+  officerName      String
+  customerResponse String?
+  status           String       @default("PROPOSED") // PROPOSED, ACCEPTED_BY_CUSTOMER, REJECTED, REFERRED_FOR_RESTRUCTURING
+  notes            String?
+  createdAt        DateTime     @default(now())
+
+  recoveryCase     RecoveryCase @relation(fields: [recoveryCaseId], references: [id], onDelete: Cascade)
+
+  @@index([recoveryCaseId])
+  @@map("recovery_negotiations")
+}
+
+model LegalReview {
+  id                String            @id @default(uuid())
+  reviewNumber      String            @unique
+  recoveryCaseId    String
+  loanId            String
+  customerId        String
+  requestedBy       String
+  requestedByName   String
+  requestedByRole   String
+  requestedAt       DateTime          @default(now())
+  reviewReason      String
+  recommendedAction String?
+  status            String            @default("PENDING_REVIEW") // PENDING_REVIEW, APPROVED_FOR_LEGAL, RETURNED_TO_RECOVERY, REJECTED
+  reviewedBy        String?
+  reviewedByName    String?
+  reviewedByRole    String?
+  reviewedAt        DateTime?
+  reviewerNotes     String?
+
+  recoveryCase      RecoveryCase      @relation(fields: [recoveryCaseId], references: [id], onDelete: Cascade)
+
+  @@index([recoveryCaseId])
+  @@index([loanId])
+  @@map("legal_reviews")
+}
+
+model LegalCase {
+  id                     String              @id @default(uuid())
+  legalCaseNumber        String              @unique
+  recoveryCaseId         String
+  loanId                 String
+  customerId             String
+  accountNumber          String
+  customerName           String
+  caseType               LegalCaseTypeEnum   @default(DEMAND_NOTICE_138)
+  jurisdiction           String
+  courtOrForum           String
+  courtCaseNumber        String?
+  filingDate             String?
+  nextHearingDate        String?
+  lastHearingDate        String?
+  advocateName           String?
+  advocateContact        String?
+  externalCounsel        String?
+  assignedLegalOfficer   String?
+  assignedLegalOfficerId String?
+  claimAmount            Decimal             @db.Decimal(14, 2)
+  recoveredAmount        Decimal             @default(0.00) @db.Decimal(14, 2)
+  status                 LegalCaseStatusEnum @default(DRAFT_REVIEW)
+  notes                  String?
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+
+  recoveryCase           RecoveryCase        @relation(fields: [recoveryCaseId], references: [id], onDelete: Cascade)
+  loan                   LoanAccount         @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  customer               Customer            @relation(fields: [customerId], references: [id])
+  events                 LegalCaseEvent[]
+  notices                LegalNotice[]
+
+  @@index([recoveryCaseId])
+  @@index([loanId])
+  @@index([customerId])
+  @@index([status])
+  @@index([caseType])
+  @@map("legal_cases")
+}
+
+model LegalCaseEvent {
+  id              String    @id @default(uuid())
+  legalCaseId     String
+  eventType       String    // NOTICE_ISSUED, CASE_FILED, SUMMONS_SERVED, HEARING_HELD, EVIDENCE_FILED, INTERIM_ORDER, FINAL_DECREE, WARRANT_ISSUED, ATTACHMENT_ORDER, PAYMENT_RECORDED, SETTLEMENT_REACHED, CASE_CLOSED
+  eventDate       String
+  actorName       String
+  actorRole       String
+  notes           String
+  referenceNumber String?
+  documentUrl     String?
+  nextAction      String?
+  nextHearingDate String?
+  createdAt       DateTime  @default(now())
+
+  legalCase       LegalCase @relation(fields: [legalCaseId], references: [id], onDelete: Cascade)
+
+  @@index([legalCaseId])
+  @@map("legal_case_events")
+}
+
+model LegalNotice {
+  id               String                @id @default(uuid())
+  noticeNumber     String                @unique
+  loanId           String
+  recoveryCaseId   String
+  legalCaseId      String?
+  customerId       String
+  noticeType       String                // SECTION_138_CHEQUE_BOUNCE, LOAN_RECALL_DEMAND, STATUTORY_DEMAND_NOTICE, ARBITRATION_INVOCATION, SARFAESI_13_2_NOTICE
+  status           LegalNoticeStatusEnum @default(DRAFT)
+  demandAmount     Decimal               @db.Decimal(14, 2)
+  noticeDate       String
+  curePeriodDays   Int                   @default(15)
+  dueDate          String
+  recipientName    String
+  recipientAddress String
+  dispatchMode     String?               // REGISTERED_POST_AD, SPEED_POST, COURIER, EMAIL, HAND_DELIVERY
+  trackingNumber   String?
+  dispatchedDate   String?
+  deliveryDate     String?
+  draftContent     String
+  preparedBy       String
+  preparedByName   String
+  approvedBy       String?
+  approvedByName   String?
+  approvedAt       DateTime?
+  dispatchedBy     String?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  loan             LoanAccount           @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  recoveryCase     RecoveryCase          @relation(fields: [recoveryCaseId], references: [id], onDelete: Cascade)
+  legalCase        LegalCase?            @relation(fields: [legalCaseId], references: [id], onDelete: SetNull)
+
+  @@index([loanId])
+  @@index([recoveryCaseId])
+  @@index([legalCaseId])
+  @@map("legal_notices")
+}
+
+// ----------------------------------------------------
+// Restructuring, Rescheduling & Moratoriums (Batch 14)
+// ----------------------------------------------------
+
+enum RestructuringTypeEnum {
+  TENURE_EXTENSION
+  EMI_REDUCTION
+  EMI_INCREASE
+  INTEREST_RATE_CHANGE
+  REPAYMENT_FREQUENCY_CHANGE
+  MORATORIUM
+  PAYMENT_HOLIDAY
+  DUE_DATE_CHANGE
+  PARTIAL_RESCHEDULING
+  FULL_RESCHEDULING
+}
+
+enum RestructuringStatusEnum {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  CANCELLED
+  EFFECTIVE
+  SUPERSEDED
+}
+
+model RestructuringRequest {
+  id                             String                  @id @default(uuid())
+  requestNumber                  String                  @unique
+  loanId                         String
+  accountNumber                  String
+  customerId                     String
+  customerNumber                 String?
+  customerName                   String
+  requestType                    RestructuringTypeEnum   @default(TENURE_EXTENSION)
+  reason                         String
+  requestedBy                    String
+  requestedByName                String
+  requestedByRole                String
+  requestedAt                    DateTime                @default(now())
+  effectiveDate                  String                  // YYYY-MM-DD
+  status                         RestructuringStatusEnum @default(SUBMITTED)
+  assignedOfficer                String?
+  assignedOfficerId              String?
+  branchId                       String                  @default("br_panjim")
+  branchName                     String?
+
+  // Current Terms Snapshot
+  currentPrincipalOutstanding     Decimal                 @db.Decimal(14, 2)
+  currentInterestRate            Decimal                 @db.Decimal(5, 2)
+  currentRemainingTenureMonths   Int
+  currentEmiAmount               Decimal                 @db.Decimal(14, 2)
+  currentRepaymentFrequency      String                  @default("MONTHLY")
+  currentNextDueDate             String?
+  currentMaturityDate            String?
+  currentDpd                     Int                     @default(0)
+  currentOverdueAmount           Decimal                 @default(0.00) @db.Decimal(14, 2)
+  currentScheduleVersion         Int                     @default(1)
+
+  // Proposed Terms
+  proposedPrincipal              Decimal                 @db.Decimal(14, 2)
+  proposedInterestRate           Decimal                 @db.Decimal(5, 2)
+  proposedTenureMonths           Int
+  proposedEmiAmount              Decimal                 @db.Decimal(14, 2)
+  proposedRepaymentFrequency     String                  @default("MONTHLY")
+  proposedFirstDueDate           String
+  proposedMaturityDate           String
+
+  // Specific Moratorium & Treatment Terms
+  moratoriumMonths               Int?                    @default(0)
+  moratoriumInterestTreatment    String?                 @default("ACCRUE_AND_AMORTIZE") // ACCRUE_AND_AMORTIZE, CAPITALIZE, PAY_INTEREST_ONLY, WAIVE
+  moratoriumPrincipalTreatment   String?                 @default("DEFER")
+  moratoriumFeeTreatment         String?                 @default("REMAIN_DUE")
+  capitalizedAmount              Decimal?                @default(0.00) @db.Decimal(14, 2)
+  feeTreatment                   String?                 @default("REMAIN_DUE") // REMAIN_DUE, CAPITALIZED, WAIVED, DEFERRED
+  penaltyTreatment               String?                 @default("REMAIN_DUE")
+
+  // Financial Impact (Calculated server-side)
+  currentRemainingInterest       Decimal                 @db.Decimal(14, 2)
+  proposedRemainingInterest      Decimal                 @db.Decimal(14, 2)
+  interestDifference             Decimal                 @db.Decimal(14, 2)
+  currentTotalScheduled          Decimal                 @db.Decimal(14, 2)
+  proposedTotalScheduled         Decimal                 @db.Decimal(14, 2)
+  emiDifference                  Decimal                 @db.Decimal(14, 2)
+  tenureDifference               Int
+
+  // Review & Approval Workflow
+  reviewedBy                     String?
+  reviewedByName                 String?
+  reviewedByRole                 String?
+  reviewedAt                     DateTime?
+  reviewNotes                    String?
+
+  approvedBy                     String?
+  approvedByName                 String?
+  approvedByRole                 String?
+  approvedAt                     DateTime?
+  approvalNotes                  String?
+
+  rejectedBy                     String?
+  rejectedByName                 String?
+  rejectedByRole                 String?
+  rejectedAt                     DateTime?
+  rejectionReason                String?
+
+  appliedAt                      DateTime?
+  appliedBy                      String?
+  appliedByName                  String?
+  resultingScheduleVersionId     String?
+  resultingScheduleVersionNumber Int?
+
+  // Customer Consent Tracking
+  consentRequired                Boolean                 @default(true)
+  consentReceived                Boolean                 @default(false)
+  consentDate                    String?
+  consentMethod                  String?                 // DIGITAL_OTP, PHYSICAL_SIGNATURE, E_SIGN, IN_PERSON
+  consentDocumentRef             String?
+
+  createdAt                      DateTime                @default(now())
+  updatedAt                      DateTime                @updatedAt
+
+  loan                           LoanAccount             @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  customer                       Customer                @relation(fields: [customerId], references: [id])
+  events                         RestructuringEvent[]
+  proposals                      RestructuringProposal[]
+
+  @@index([loanId])
+  @@index([customerId])
+  @@index([accountNumber])
+  @@index([status])
+  @@index([requestType])
+  @@index([effectiveDate])
+  @@index([branchId])
+  @@map("restructuring_requests")
+}
+
+model RestructuringEvent {
+  id                   String               @id @default(uuid())
+  requestId            String
+  eventType            String               // CREATED, SUBMITTED, UNDER_REVIEW, APPROVED, REJECTED, CONSENT_RECORDED, APPLIED_EFFECTIVE, CANCELLED
+  timestamp            DateTime             @default(now())
+  actor                String
+  actorName            String
+  actorRole            String
+  title                String
+  description          String?
+  metadata             Json?
+
+  restructuringRequest RestructuringRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+  @@map("restructuring_events")
+}
+
+model RestructuringProposal {
+  id                   String               @id @default(uuid())
+  requestId            String
+  proposalOptionName   String               // Option A, Option B, etc.
+  tenureMonths         Int
+  interestRate         Decimal              @db.Decimal(5, 2)
+  emiAmount            Decimal              @db.Decimal(14, 2)
+  frequency            String               @default("MONTHLY")
+  moratoriumMonths     Int                  @default(0)
+  totalInterest        Decimal              @db.Decimal(14, 2)
+  totalAmount          Decimal              @db.Decimal(14, 2)
+  isRecommended        Boolean              @default(false)
+  isSelected           Boolean              @default(false)
+  schedulePreview      Json?
+  createdAt            DateTime             @default(now())
+
+  restructuringRequest RestructuringRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+  @@map("restructuring_proposals")
+}
+
+// ----------------------------------------------------
+// Charges, Waivers & Financial Adjustments (Batch 15)
+// ----------------------------------------------------
+
+model ChargeConfiguration {
+  id               String   @id @default(uuid())
+  chargeCode       String   @unique // e.g. LATE_FEE_MONTHLY, BOUNCE_FEE_NACH, LEGAL_NOTICE_FEE, PROCESSING_FEE
+  chargeName       String
+  chargeType       String   // LATE_PAYMENT_FEE, BOUNCE_FEE, COLLECTION_FEE, LEGAL_FEE, NOTICE_FEE, PROCESSING_FEE, OTHER_FEE
+  calculationBasis String   @default("FIXED_AMOUNT") // FIXED_AMOUNT, PERCENTAGE_OF_PRINCIPAL, PERCENTAGE_OF_OVERDUE, PER_INSTALMENT, PER_EVENT, PER_DAY
+  rateOrValue      Decimal  @db.Decimal(10, 2)
+  taxPercentage    Decimal  @default(18.00) @db.Decimal(5, 2) // e.g. 18% GST
+  minAmount        Decimal? @db.Decimal(14, 2)
+  maxAmount        Decimal? @db.Decimal(14, 2)
+  applicableEvent  String?  // PAYMENT_LATE, PAYMENT_RETURNED, NOTICE_ISSUED, LEGAL_CASE_FILED, MANUAL
+  isWaivable       Boolean  @default(true)
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("charge_configurations")
+}
+
+model WaiverRequest {
+  id                       String      @id @default(uuid())
+  waiverNumber             String      @unique // e.g. WVR-2026-000101
+  loanId                   String
+  customerId               String
+  accountNumber            String
+  customerName             String
+  chargeId                 String?
+  waiverType               String      @default("PARTIAL_WAIVER") // FULL_WAIVER, PARTIAL_WAIVER, FEE_WAIVER, PENALTY_WAIVER, INTEREST_WAIVER, CHARGE_REVERSAL
+  category                 String      @default("FEE") // FEE, PENALTY, INTEREST
+  requestedAmount          Decimal     @db.Decimal(14, 2)
+  approvedAmount           Decimal?    @db.Decimal(14, 2)
+  eligibleOutstandingBefore Decimal   @db.Decimal(14, 2)
+  reason                   String
+  status                   String      @default("SUBMITTED") // DRAFT, SUBMITTED, UNDER_REVIEW, APPROVED, REJECTED, APPLIED, CANCELLED
+  requestedBy              String
+  requestedByName          String
+  requestedByRole          String
+  requestedAt              DateTime    @default(now())
+  reviewedBy               String?
+  reviewedByName           String?
+  reviewedAt               DateTime?
+  approvedBy               String?
+  approvedByName           String?
+  approvedByRole           String?
+  approvedAt               DateTime?
+  approvalNotes            String?
+  rejectedBy               String?
+  rejectedByName           String?
+  rejectedAt               DateTime?
+  rejectionReason          String?
+  appliedAt                DateTime?
+  appliedBy                String?
+  resultingTransactionRef  String?
+  createdAt                DateTime    @default(now())
+  updatedAt                DateTime    @updatedAt
+
+  loan                     LoanAccount @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  customer                 Customer    @relation(fields: [customerId], references: [id])
+  charge                   LoanCharge? @relation(fields: [chargeId], references: [id], onDelete: SetNull)
+
+  @@index([loanId])
+  @@index([customerId])
+  @@index([accountNumber])
+  @@index([chargeId])
+  @@index([status])
+  @@index([waiverType])
+  @@map("waiver_requests")
+}
+
+model FinancialAdjustmentRequest {
+  id                      String      @id @default(uuid())
+  adjustmentNumber        String      @unique // e.g. ADJ-2026-000101
+  loanId                  String
+  customerId              String
+  accountNumber           String
+  customerName            String
+  adjustmentType          String      @default("CREDIT_ADJUSTMENT") // DEBIT_ADJUSTMENT, CREDIT_ADJUSTMENT, FEE_ADJUSTMENT, INTEREST_ADJUSTMENT, PENALTY_ADJUSTMENT
+  amount                  Decimal     @db.Decimal(14, 2)
+  principalAdjustment     Decimal     @default(0.00) @db.Decimal(14, 2)
+  interestAdjustment      Decimal     @default(0.00) @db.Decimal(14, 2)
+  feeAdjustment           Decimal     @default(0.00) @db.Decimal(14, 2)
+  penaltyAdjustment       Decimal     @default(0.00) @db.Decimal(14, 2)
+  effectiveDate           String
+  reason                  String
+  reference               String?
+  status                  String      @default("SUBMITTED") // DRAFT, SUBMITTED, UNDER_REVIEW, APPROVED, REJECTED, APPLIED, CANCELLED, REVERSED
+  requestedBy             String
+  requestedByName         String
+  requestedByRole         String
+  requestedAt             DateTime    @default(now())
+  approvedBy              String?
+  approvedByName          String?
+  approvedByRole          String?
+  approvedAt              DateTime?
+  approvalNotes           String?
+  rejectedBy              String?
+  rejectedByName          String?
+  rejectedAt              DateTime?
+  rejectionReason         String?
+  appliedAt               DateTime?
+  appliedBy               String?
+  resultingTransactionRef String?
+  createdAt               DateTime    @default(now())
+  updatedAt               DateTime    @updatedAt
+
+  loan                    LoanAccount @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  customer                Customer    @relation(fields: [customerId], references: [id])
+
+  @@index([loanId])
+  @@index([customerId])
+  @@index([accountNumber])
+  @@index([status])
+  @@index([adjustmentType])
+  @@map("financial_adjustment_requests")
+}
+
+model AdjustmentReversal {
+  id                         String      @id @default(uuid())
+  reversalNumber             String      @unique // e.g. REV-2026-000101
+  targetType                 String      // CHARGE, WAIVER, ADJUSTMENT, TRANSACTION
+  targetId                   String
+  targetReference            String
+  loanId                     String
+  amount                     Decimal     @db.Decimal(14, 2)
+  reason                     String
+  status                     String      @default("COMPLETED")
+  requestedBy                String
+  requestedByName            String
+  approvedBy                 String?
+  approvedByName             String?
+  reversedAt                 DateTime    @default(now())
+  compensatingTransactionRef String
+  notes                      String?
+  createdAt                  DateTime    @default(now())
+
+  loan                       LoanAccount @relation(fields: [loanId], references: [id], onDelete: Cascade)
+
+  @@index([loanId])
+  @@index([targetId])
+  @@index([targetType])
+  @@map("adjustment_reversals")
+}
+
+// ----------------------------------------------------
+// Settlement, Foreclosure, Loan Closure & NOC (Batch 16)
+// ----------------------------------------------------
+
+model LoanClosureRequest {
+  id                           String              @id @default(uuid())
+  requestNumber                String              @unique // e.g. CLR-2026-000101
+  loanId                       String
+  customerId                   String
+  accountNumber                String
+  customerName                 String
+  closureType                  String              @default("FORECLOSURE") // FORECLOSURE, SETTLEMENT, NORMAL_CLOSURE, VOLUNTARY_CLOSURE
+  status                       String              @default("SUBMITTED") // DRAFT, SUBMITTED, UNDER_REVIEW, APPROVED, REJECTED, PAYMENT_PENDING, RECONCILED, CLOSED, CANCELLED, EXPIRED
+  calculationDate              String
+  effectiveDate                String
+  requestedBy                  String
+  requestedByName              String
+  requestedByRole              String
+  requestedAt                  DateTime            @default(now())
+  reason                       String
+  assignedOfficer              String?
+  assignedOfficerId            String?
+  branchId                     String?
+  branchName                   String?
+
+  // Financial Exposure Snapshot
+  principalOutstanding        Decimal             @db.Decimal(14, 2)
+  interestOutstanding         Decimal             @db.Decimal(14, 2)
+  feeOutstanding              Decimal             @db.Decimal(14, 2)
+  penaltyOutstanding          Decimal             @db.Decimal(14, 2)
+  totalExposure               Decimal             @db.Decimal(14, 2)
+
+  // Calculations & Quotes
+  foreclosureChargeAmount      Decimal             @default(0.00) @db.Decimal(14, 2)
+  foreclosureChargeTax         Decimal             @default(0.00) @db.Decimal(14, 2)
+  waiverAmount                 Decimal             @default(0.00) @db.Decimal(14, 2)
+  concessionAmount             Decimal             @default(0.00) @db.Decimal(14, 2)
+  finalPayableAmount           Decimal             @db.Decimal(14, 2)
+  paidAmount                   Decimal             @default(0.00) @db.Decimal(14, 2)
+  quoteValidUntil              String?
+
+  // Maker-Checker & Approvals
+  reviewedBy                   String?
+  reviewedByName               String?
+  reviewedAt                   DateTime?
+  approvedBy                   String?
+  approvedByName               String?
+  approvedByRole               String?
+  approvedAt                   DateTime?
+  approvalNotes                String?
+  rejectedBy                   String?
+  rejectedByName               String?
+  rejectedAt                   DateTime?
+  rejectionReason              String?
+  closedAt                     DateTime?
+  closedBy                     String?
+  closureNotes                 String?
+
+  // Reconciliation References
+  reconciliationTransactionRef String?
+  concessionAdjustmentRef      String?
+
+  createdAt                    DateTime            @default(now())
+  updatedAt                    DateTime            @updatedAt
+
+  loan                         LoanAccount         @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  customer                     Customer            @relation(fields: [customerId], references: [id])
+  foreclosureQuote             ForeclosureQuote?
+  settlementProposal           SettlementProposal?
+  nocRecord                    NocRecord?
+  events                       ClosureEvent[]
+
+  @@index([loanId])
+  @@index([customerId])
+  @@index([accountNumber])
+  @@index([status])
+  @@index([closureType])
+  @@map("loan_closure_requests")
+}
+
+model ForeclosureQuote {
+  id                    String             @id @default(uuid())
+  quoteNumber           String             @unique // e.g. FCQ-2026-000101
+  closureRequestId      String             @unique
+  loanId                String
+  quoteDate             String
+  validUntil            String
+  principalOutstanding Decimal            @db.Decimal(14, 2)
+  accruedInterest       Decimal            @db.Decimal(14, 2)
+  feesDue               Decimal            @db.Decimal(14, 2)
+  penaltiesDue          Decimal            @db.Decimal(14, 2)
+  foreclosureFeeRate    Decimal            @default(2.00) @db.Decimal(5, 2)
+  foreclosureFeeAmount  Decimal            @db.Decimal(14, 2)
+  foreclosureFeeTax     Decimal            @default(0.00) @db.Decimal(14, 2)
+  totalForeclosureCharge Decimal           @db.Decimal(14, 2)
+  approvedWaivers       Decimal            @default(0.00) @db.Decimal(14, 2)
+  netPayableAmount      Decimal            @db.Decimal(14, 2)
+  status                String             @default("ACTIVE") // ACTIVE, EXPIRED, ACCEPTED, SUPERSEDED
+  generatedBy           String
+  createdAt             DateTime           @default(now())
+
+  closureRequest        LoanClosureRequest @relation(fields: [closureRequestId], references: [id], onDelete: Cascade)
+  loan                  LoanAccount        @relation(fields: [loanId], references: [id], onDelete: Cascade)
+
+  @@index([loanId])
+  @@index([closureRequestId])
+  @@map("foreclosure_quotes")
+}
+
+model SettlementProposal {
+  id                      String             @id @default(uuid())
+  proposalNumber          String             @unique // e.g. SET-2026-000101
+  closureRequestId        String             @unique
+  loanId                  String
+  totalExposure           Decimal            @db.Decimal(14, 2)
+  proposedSettlementAmount Decimal           @db.Decimal(14, 2)
+  concessionAmount        Decimal            @db.Decimal(14, 2)
+  concessionPercentage    Decimal            @db.Decimal(5, 2)
+  principalConcession     Decimal            @default(0.00) @db.Decimal(14, 2)
+  interestConcession      Decimal            @default(0.00) @db.Decimal(14, 2)
+  feePenaltyConcession    Decimal            @default(0.00) @db.Decimal(14, 2)
+  paymentDeadline         String
+  settlementReason        String
+  hardshipCategory        String?
+  status                  String             @default("PROPOSED") // PROPOSED, APPROVED, REJECTED, PAID, DEFAULTED
+  createdAt               DateTime           @default(now())
+
+  closureRequest          LoanClosureRequest @relation(fields: [closureRequestId], references: [id], onDelete: Cascade)
+  loan                    LoanAccount        @relation(fields: [loanId], references: [id], onDelete: Cascade)
+
+  @@index([loanId])
+  @@index([closureRequestId])
+  @@map("settlement_proposals")
+}
+
+model NocRecord {
+  id                  String             @id @default(uuid())
+  nocNumber           String             @unique // e.g. NOC-2026-000101
+  loanId              String             @unique
+  customerId          String
+  accountNumber       String
+  customerName        String
+  closureRequestId    String             @unique
+  closureType         String
+  closureDate         String
+  sanctionedAmount    Decimal            @db.Decimal(14, 2)
+  disbursedAmount     Decimal            @db.Decimal(14, 2)
+  totalRecoveredAmount Decimal           @db.Decimal(14, 2)
+  status              String             @default("READY") // PENDING_ELIGIBILITY, READY, GENERATED, APPROVED, ISSUED, CANCELLED
+  documentReference   String?
+  generatedAt         DateTime?
+  generatedBy         String?
+  approvedAt          DateTime?
+  approvedBy          String?
+  issuedAt            DateTime?
+  issuedBy            String?
+  deliveryMethod      String?
+  dispatchAddress     String?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  closureRequest      LoanClosureRequest @relation(fields: [closureRequestId], references: [id], onDelete: Cascade)
+  loan                LoanAccount        @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  customer            Customer           @relation(fields: [customerId], references: [id])
+
+  @@index([loanId])
+  @@index([customerId])
+  @@index([closureRequestId])
+  @@index([status])
+  @@map("noc_records")
+}
+
+model ClosureEvent {
+  id               String             @id @default(uuid())
+  closureRequestId String
+  eventType        String
+  timestamp        DateTime           @default(now())
+  actor            String
+  actorName        String
+  actorRole        String
+  title            String
+  description      String
+  amount           Decimal?           @db.Decimal(14, 2)
+
+  closureRequest   LoanClosureRequest @relation(fields: [closureRequestId], references: [id], onDelete: Cascade)
+
+  @@index([closureRequestId])
+  @@map("closure_events")
+}
+
+// ----------------------------------------------------
+// Custom Application Form Builder (Templates, Versions & Responses)
+// ----------------------------------------------------
+
+model ApplicationFormTemplate {
+  id             String                   @id @default(uuid())
+  productId      String
+  title          String
+  description    String?
+  status         String                   @default("PUBLISHED") // DRAFT, PUBLISHED, ARCHIVED
+  currentVersion Int                      @default(1)
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+
+  product        LoanProduct              @relation(fields: [productId], references: [id], onDelete: Cascade)
+  versions       ApplicationFormVersion[]
+
+  @@index([productId])
+  @@map("application_form_templates")
+}
+
+model ApplicationFormVersion {
+  id             String                        @id @default(uuid())
+  formTemplateId String
+  versionNumber  Int
+  status         String                        @default("PUBLISHED") // DRAFT, PUBLISHED, SUPERSEDED, ARCHIVED
+  schemaJson     Json                          // Complete multi-page schema with sections, columns, fields, conditions
+  publishedAt    DateTime?
+  publishedBy    String?
+  changeSummary  String?
+  createdAt      DateTime                      @default(now())
+  updatedAt      DateTime                      @updatedAt
+
+  formTemplate   ApplicationFormTemplate       @relation(fields: [formTemplateId], references: [id], onDelete: Cascade)
+  responses      LoanApplicationFormResponse[]
+
+  @@index([formTemplateId])
+  @@index([versionNumber])
+  @@map("application_form_versions")
+}
+
+model LoanApplicationFormResponse {
+  id                   String                 @id @default(uuid())
+  applicationId        String                 @unique
+  formVersionId        String
+  productId            String
+  responses            Json                   // Map of fieldId -> response value
+  signatures           Json?                  // Map of fieldId -> { signatureDataUrl, signedAt, signerName, ipAddress }
+  uploadedDocumentIds  Json?                  // Map of fieldId -> Array of doc references
+  completionPercentage Decimal                @default(0.00) @db.Decimal(5, 2)
+  currentPageIndex     Int                    @default(0)
+  isSubmitted          Boolean                @default(false)
+  submittedAt          DateTime?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+
+  application          LoanApplication        @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  formVersion          ApplicationFormVersion @relation(fields: [formVersionId], references: [id])
+
+  @@index([applicationId])
+  @@index([formVersionId])
+  @@index([productId])
+  @@map("loan_application_form_responses")
+}
+
+
+
+
+
+
