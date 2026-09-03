@@ -71,8 +71,10 @@ export const PERMISSION_ALIASES: Record<string, string[]> = {
   manage_roles: ['perm_role_manage', 'ROLES:MANAGE'],
   view_branches: ['perm_branch_view', 'BRANCHES:VIEW'],
   manage_branches: ['perm_branch_manage', 'BRANCHES:MANAGE', 'BRANCHES:CREATE', 'BRANCHES:EDIT'],
-  view_system_settings: ['perm_config_view', 'SETTINGS:VIEW', 'CONFIG:VIEW'],
-  manage_system_settings: ['perm_config_edit', 'SETTINGS:MANAGE', 'CONFIG:EDIT', 'perm_branch_manage'],
+  view_system_settings: ['perm_config_view', 'SETTINGS:VIEW', 'CONFIG:VIEW', 'perm_sys_view', 'SYSTEM_CONFIG:VIEW'],
+  manage_system_settings: ['perm_config_edit', 'SETTINGS:MANAGE', 'CONFIG:EDIT', 'perm_sys_manage', 'SYSTEM_CONFIG:MANAGE', 'perm_branch_manage'],
+  view_system_config: ['perm_sys_view', 'SYSTEM_CONFIG:VIEW', 'perm_config_view', 'SETTINGS:VIEW'],
+  manage_system_config: ['perm_sys_manage', 'SYSTEM_CONFIG:MANAGE', 'perm_config_edit', 'SETTINGS:MANAGE'],
   view_audit_logs: ['perm_audit_view', 'AUDIT:VIEW'],
 
   // Generic / Core

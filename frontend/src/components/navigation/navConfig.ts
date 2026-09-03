@@ -174,7 +174,7 @@ export const NAV_ITEMS: NavItem[] = [
   },
   {
     id: 'system_config',
-    label: 'System Configuration',
+    label: 'App & System Settings',
     path: '/system-config',
     group: 'Configuration',
     iconName: 'Settings',

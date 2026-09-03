@@ -6,15 +6,17 @@ import {
   Building,
   Shield,
   BadgePercent,
+  Settings,
 } from 'lucide-react';
 import { ConfirmationDialog } from '../shared/ConfirmationDialog';
 
 interface UserMenuProps {
   onOpenProfile?: () => void;
+  onNavigate?: (mod: string) => void;
 }
 
-export const UserMenu: React.FC<UserMenuProps> = () => {
-  const { user, logout } = useAuth();
+export const UserMenu: React.FC<UserMenuProps> = ({ onNavigate }) => {
+  const { user, logout, hasPermission } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -77,6 +79,23 @@ export const UserMenu: React.FC<UserMenuProps> = () => {
                 </div>
               </div>
             </div>
+
+            {/* Navigation Options for Administrators */}
+            {((user.role as string) === 'system_admin' || (user.role as string) === 'SYSTEM_ADMIN' || hasPermission('manage_users_roles') || hasPermission('view_system_config')) && (
+              <div className="p-1.5 border-b border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsOpen(false);
+                    onNavigate?.('system_config');
+                  }}
+                  className="w-full px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded flex items-center gap-2 transition-colors text-left"
+                >
+                  <Settings className="w-4 h-4 text-slate-500" />
+                  <span>App & System Settings</span>
+                </button>
+              </div>
+            )}
 
             {/* Sign Out Button */}
             <div className="p-1.5">

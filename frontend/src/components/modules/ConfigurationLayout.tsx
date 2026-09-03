@@ -3,10 +3,11 @@ import { UsersView } from './UsersView';
 import { RolesView } from './RolesView';
 import { BranchesView } from './BranchesView';
 import { AuditView } from './AuditView';
+import { AppSettingsPanel } from '../admin/AppSettingsPanel';
 import { LMSUser } from '../../types';
-import { Users, Shield, Building, History, ArrowRight } from 'lucide-react';
+import { Users, Shield, Building, History, ArrowRight, Settings } from 'lucide-react';
 
-export type ConfigurationTab = 'users' | 'roles' | 'branches' | 'audit';
+export type ConfigurationTab = 'users' | 'roles' | 'branches' | 'settings' | 'audit';
 
 interface ConfigurationLayoutProps {
   initialTab?: ConfigurationTab;
@@ -23,6 +24,7 @@ export const ConfigurationLayout: React.FC<ConfigurationLayoutProps> = ({
     { id: 'users', label: 'User Management', icon: Users },
     { id: 'roles', label: 'Role & Permission Management', icon: Shield },
     { id: 'branches', label: 'Branch Management', icon: Building },
+    { id: 'settings', label: 'App Settings', icon: Settings },
     { id: 'audit', label: 'Audit Trail', icon: History },
   ];
 
@@ -93,6 +95,7 @@ export const ConfigurationLayout: React.FC<ConfigurationLayoutProps> = ({
             }}
           />
         )}
+        {currentTab === 'settings' && <AppSettingsPanel />}
         {currentTab === 'audit' && <AuditView />}
       </div>
     </div>

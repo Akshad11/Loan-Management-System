@@ -92,7 +92,7 @@ export const Header: React.FC<HeaderProps> = ({
 
         <div className="h-4 w-px bg-slate-200 mx-1" />
 
-        <UserMenu />
+        <UserMenu onNavigate={onNavigate} />
       </div>
     </header>
   );

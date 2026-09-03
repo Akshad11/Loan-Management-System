@@ -47,7 +47,7 @@ const MODULE_TITLES: Record<string, string> = {
   charges_adjustments: 'Charges & Waivers',
   closures_noc: 'Settlement & NOC',
   loan_products: 'Loan Products & Form Builder',
-  system_config: 'System Configuration',
+  system_config: 'App & System Settings',
   users: 'User Directory',
   roles: 'Roles & Access Control',
   branches: 'Branch Management',
