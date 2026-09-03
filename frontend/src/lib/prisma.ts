@@ -11,7 +11,7 @@ const pool = connectionString
       host: process.env.PGHOST || 'localhost',
       port: parseInt(process.env.PGPORT || '5432', 10),
       user: process.env.PGUSER || 'postgres',
-      password: process.env.PGPASSWORD || '',
+      password: process.env.PGPASSWORD || 'postgres',
       database: process.env.PGDATABASE || 'loan_ms_db',
       max: 10,
       idleTimeoutMillis: 30000,
