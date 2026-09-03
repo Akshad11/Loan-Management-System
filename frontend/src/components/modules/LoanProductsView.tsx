@@ -17,7 +17,7 @@ import {
   Building,
 } from 'lucide-react';
 import { LoanProductRecord, ProductCategory } from '../../types/formBuilderTypes';
-import { INITIAL_LOAN_PRODUCTS } from '../../data/loanProductData';
+import { INITIAL_LOAN_PRODUCTS } from '../../config/systemTemplates';
 import { useMockLMSStore } from '../../services/mockService';
 import { CreateProductModal } from '../products/CreateProductModal';
 import { FormBuilderModal } from '../form-builder/FormBuilderModal';

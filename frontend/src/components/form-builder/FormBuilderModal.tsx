@@ -21,7 +21,7 @@ import { FieldPalette } from './FieldPalette';
 import { FormCanvas } from './FormCanvas';
 import { FieldConfigPanel } from './FieldConfigPanel';
 import { DynamicFormRenderer } from '../forms/DynamicFormRenderer';
-import { HOME_LOAN_FORM_SCHEMA } from '../../data/loanProductData';
+import { HOME_LOAN_FORM_SCHEMA } from '../../config/systemTemplates';
 
 interface FormBuilderModalProps {
   isOpen: boolean;

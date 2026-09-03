@@ -10,7 +10,7 @@ import {
   FormFieldDefinition,
   SignatureCaptureData,
 } from '../types/formBuilderTypes';
-import { HOME_LOAN_FORM_SCHEMA } from '../data/loanProductData';
+import { HOME_LOAN_FORM_SCHEMA } from '../config/systemTemplates';
 
 function runTestSuite() {
   console.log('\n======================================================');

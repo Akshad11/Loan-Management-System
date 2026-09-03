@@ -5,7 +5,7 @@ import { AdminStatusBadge } from '../shared/AdminStatusBadge';
 import { UserAvatar } from '../shared/UserAvatar';
 import { AuditTimeline } from '../shared/AuditTimeline';
 import { LMSUser, Role, Branch, AdminAuditEntry } from '../../types';
-import { PERMISSION_CATALOG, PERMISSION_MODULES } from '../../data/permissions';
+import { PERMISSION_CATALOG, PERMISSION_MODULES } from '../../config/permissions';
 import { formatIndianPhone } from '../../utils/formatters';
 import {
   Mail,

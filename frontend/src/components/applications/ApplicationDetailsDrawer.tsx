@@ -38,7 +38,7 @@ import { ApplicationTimeline } from './ApplicationTimeline';
 import { formatCurrencyINR } from '../../utils/formatters';
 import { useMockStore } from '../../services/mockService';
 import { DynamicFormRenderer } from '../forms/DynamicFormRenderer';
-import { HOME_LOAN_FORM_SCHEMA } from '../../data/loanProductData';
+import { HOME_LOAN_FORM_SCHEMA } from '../../config/systemTemplates';
 
 interface ApplicationDetailsDrawerProps {
   isOpen: boolean;

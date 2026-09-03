@@ -1,5 +1,5 @@
 import React from 'react';
-import { PERMISSION_CATALOG, PERMISSION_MODULES } from '../../data/permissions';
+import { PERMISSION_CATALOG, PERMISSION_MODULES } from '../../config/permissions';
 import { ModuleCategory } from '../../types';
 import { AlertTriangle, CheckSquare, Square } from 'lucide-react';
 

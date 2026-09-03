@@ -27,7 +27,6 @@ import {
   ProposeSettlementPayload,
   ReconcileClosePayload,
 } from '../../types/closureTypes';
-import { INITIAL_CLOSURE_REQUESTS, INITIAL_NOCS } from '../../data/closureData';
 import { CreateForeclosureModal } from '../closures/CreateForeclosureModal';
 import { ProposeSettlementModal } from '../closures/ProposeSettlementModal';
 import { ClosureReconcileModal } from '../closures/ClosureReconcileModal';
@@ -47,8 +46,8 @@ export const ClosuresNocView: React.FC = () => {
   };
 
   const [activeTab, setActiveTab] = useState<'FORECLOSURES' | 'SETTLEMENTS' | 'CLOSED_LOANS' | 'NOCS'>('FORECLOSURES');
-  const [closureRequests, setClosureRequests] = useState<LoanClosureRequestRecord[]>(INITIAL_CLOSURE_REQUESTS);
-  const [nocRecords, setNocRecords] = useState<NocRecordType[]>(INITIAL_NOCS);
+  const [closureRequests, setClosureRequests] = useState<LoanClosureRequestRecord[]>([]);
+  const [nocRecords, setNocRecords] = useState<NocRecordType[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
 

@@ -6,7 +6,7 @@ import { RoleDetailsDrawer } from '../roles/RoleDetailsDrawer';
 import { RoleImpactModal } from '../roles/RoleImpactModal';
 import { RoleSafetyModal } from '../roles/RoleSafetyModal';
 import { Role, LMSUser } from '../../types';
-import { PERMISSION_CATALOG } from '../../data/permissions';
+import { PERMISSION_CATALOG } from '../../config/permissions';
 import { Shield, ShieldPlus, KeyRound, Search, X, CheckCircle2 } from 'lucide-react';
 
 interface RolesViewProps {

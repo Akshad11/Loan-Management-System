@@ -43,22 +43,14 @@ import {
   AssessmentTimelineEvent,
   AssessmentRuleItem,
 } from '../types';
-import { INITIAL_USERS } from '../data/users';
-import { INITIAL_ROLES } from '../data/roles';
-import { INITIAL_BRANCHES } from '../data/branches';
-import { INITIAL_ADMIN_AUDIT_LOGS } from '../data/audit';
-import { INITIAL_CUSTOMERS } from '../data/customers';
-import { INITIAL_CUSTOMER_APPLICATIONS } from '../data/customerApplications';
-import { INITIAL_CUSTOMER_LOANS } from '../data/customerLoans';
-import { INITIAL_CUSTOMER_HISTORY } from '../data/customerHistory';
-import { INITIAL_KYC_RECORDS } from '../data/kycData';
-import { INITIAL_DOCUMENTS, INITIAL_CHECKLIST_REQUIREMENTS } from '../data/documentData';
 import {
+  INITIAL_USERS,
+  INITIAL_ROLES,
+  INITIAL_BRANCHES,
+  INITIAL_CHECKLIST_REQUIREMENTS,
   LOAN_PRODUCTS_CONFIG,
-  INITIAL_APPLICATIONS,
-  INITIAL_APPLICATION_HISTORY,
-} from '../data/applicationData';
-import { INITIAL_CREDIT_ASSESSMENTS } from '../data/creditData';
+  INITIAL_APPROVAL_MATRIX_RULES,
+} from '../config/systemTemplates';
 import {
   ApprovalRecord,
   ApprovalLevelExecution,
@@ -71,11 +63,7 @@ import {
   ApprovalDecisionType,
   ApprovalStatus,
 } from '../types/approvalTypes';
-import { INITIAL_APPROVALS } from '../data/approvalData';
-import {
-  INITIAL_APPROVAL_MATRIX_RULES,
-  INITIAL_APPROVAL_MATRIX_AUDIT,
-} from '../data/approvalMatrixData';
+
 import {
   SanctionRecord,
   SanctionTerms,
@@ -89,7 +77,7 @@ import {
   LetterStatus,
   ReadinessCheckStatus,
 } from '../types/sanctionTypes';
-import { INITIAL_SANCTIONS } from '../data/sanctionData';
+
 import {
   DisbursementRecord,
   DisbursementRequestRecord,
@@ -103,7 +91,7 @@ import {
   TransactionStatus,
   DisbursementKPIsData,
 } from '../types/disbursementTypes';
-import { INITIAL_DISBURSEMENTS } from '../data/disbursementData';
+
 import {
   LoanAccountRecord,
   RepaymentScheduleVersion,
@@ -115,7 +103,7 @@ import {
   LoanRepaymentFrequency,
   InterestMethod,
 } from '../types/loanAccountTypes';
-import { INITIAL_LOAN_ACCOUNTS } from '../data/loanAccountData';
+
 import {
   generateRepaymentSchedule,
   calculateInstalmentAmount,
@@ -131,7 +119,7 @@ import {
   RecordPaymentPayload,
   PaymentFilterState,
 } from '../types/repaymentTypes';
-import { INITIAL_PAYMENTS, INITIAL_UNALLOCATED_PAYMENTS } from '../data/repaymentData';
+
 import { executePaymentAllocation, executePaymentReversal } from './repaymentAllocationEngine';
 import {
   RecoveryCaseRecord,
@@ -151,11 +139,7 @@ import {
   CreateLegalCasePayload,
   CreateLegalNoticePayload,
 } from '../types/recoveryTypes';
-import {
-  INITIAL_RECOVERY_CASES,
-  INITIAL_LEGAL_CASES,
-  INITIAL_LEGAL_NOTICES,
-} from '../data/recoveryData';
+
 import {
   RestructuringRequestRecord,
   RestructuringEventRecord,
@@ -163,7 +147,7 @@ import {
   CreateRestructuringPayload,
   RestructuringKPIs,
 } from '../types/restructuringTypes';
-import { INITIAL_RESTRUCTURING_REQUESTS } from '../data/restructuringData';
+
 import {
   evaluateRestructuringEligibility,
   generateRestructuringSchedulePreview,

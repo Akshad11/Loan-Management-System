@@ -28,7 +28,7 @@ import {
   RequestWaiverPayload,
   CreateFinancialAdjustmentPayload,
 } from '../../types/chargeAdjustmentTypes';
-import { INITIAL_CHARGE_CONFIGURATIONS } from '../../data/chargeAdjustmentData';
+import { INITIAL_CHARGE_CONFIGURATIONS } from '../../config/systemTemplates';
 import { formatCurrencyINR } from '../../utils/formatters';
 import { ApplyChargeModal } from '../charges/ApplyChargeModal';
 import { RequestWaiverModal } from '../charges/RequestWaiverModal';

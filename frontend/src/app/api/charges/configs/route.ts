@@ -1,7 +1,7 @@
 import { requireAuth, writeAuditLog } from '@/lib/serverAuth';
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { INITIAL_CHARGE_CONFIGURATIONS } from '@/data/chargeAdjustmentData';
+import { INITIAL_CHARGE_CONFIGURATIONS } from '@/config/systemTemplates';
 
 export const dynamic = 'force-dynamic';
 

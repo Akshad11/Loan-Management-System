@@ -3,11 +3,13 @@ import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 import 'dotenv/config';
 
-import { INITIAL_ROLES } from '../src/data/roles';
-import { INITIAL_BRANCHES } from '../src/data/branches';
-import { INITIAL_USERS } from '../src/data/users';
-import { LOAN_PRODUCTS_CONFIG } from '../src/data/applicationData';
-import { INITIAL_APPROVAL_MATRIX_RULES } from '../src/data/approvalMatrixData';
+import {
+  INITIAL_ROLES,
+  INITIAL_BRANCHES,
+  INITIAL_USERS,
+  LOAN_PRODUCTS_CONFIG,
+  INITIAL_APPROVAL_MATRIX_RULES,
+} from '../src/config/systemTemplates';
 
 const connectionString =
   process.env.DATABASE_URL ||

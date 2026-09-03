@@ -3,7 +3,7 @@
  * Safe to import in both Client (Browser) and Server components.
  */
 
-import { PERMISSION_CATALOG } from '@/data/permissions';
+import { PERMISSION_CATALOG } from '@/config/permissions';
 
 /**
  * Mapping of legacy or UI permission aliases to canonical codes and IDs.

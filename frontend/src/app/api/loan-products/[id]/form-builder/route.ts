@@ -1,7 +1,7 @@
 import { requireAuth, writeAuditLog } from '@/lib/serverAuth';
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { HOME_LOAN_FORM_SCHEMA } from '@/data/loanProductData';
+import { HOME_LOAN_FORM_SCHEMA } from '@/config/systemTemplates';
 
 export const dynamic = 'force-dynamic';
 
