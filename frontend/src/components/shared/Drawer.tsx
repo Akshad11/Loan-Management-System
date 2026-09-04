@@ -63,12 +63,12 @@ export const Drawer: React.FC<DrawerProps> = ({
         aria-hidden="true"
       />
 
-      <div className="fixed inset-y-0 right-0 flex max-w-full pl-10">
+      <div className="fixed inset-y-0 right-0 flex max-w-full pl-0 sm:pl-10">
         <div
           className={`w-screen ${widthClasses[activeWidth] || widthClasses.xl} transform bg-white shadow-2xl border-l border-slate-200 flex flex-col transition-all`}
         >
           {/* Header */}
-          <div className="border-b border-slate-200 px-6 py-4 bg-slate-50 shrink-0">
+          <div className="border-b border-slate-200 px-4 py-3 sm:px-6 sm:py-4 bg-slate-50 shrink-0">
             <div className="flex items-start justify-between">
               <div className="space-y-1">
                 <div className="flex items-center gap-2.5">
@@ -93,11 +93,11 @@ export const Drawer: React.FC<DrawerProps> = ({
           </div>
 
           {/* Drawer Body */}
-          <div className="flex-1 overflow-y-auto overflow-x-hidden p-6 custom-scrollbar">{children}</div>
+          <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 custom-scrollbar">{children}</div>
 
           {/* Optional Footer */}
           {footer && (
-            <div className="border-t border-slate-200 bg-slate-50 px-6 py-3 shrink-0 flex items-center justify-end gap-3">
+            <div className="border-t border-slate-200 bg-slate-50 px-4 py-3 sm:px-6 shrink-0 flex flex-wrap items-center justify-end gap-2 sm:gap-3">
               {footer}
             </div>
           )}

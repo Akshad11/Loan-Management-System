@@ -54,7 +54,7 @@ export const ApprovalsView: React.FC<ApprovalsViewProps> = ({
 
   if (activeApproval) {
     return (
-      <div className="p-6 max-w-7xl mx-auto">
+      <div className="p-0 sm:p-2 max-w-7xl mx-auto">
         <ApprovalWorkspaceView
           approval={activeApproval}
           approvers={approversList}
@@ -118,7 +118,7 @@ export const ApprovalsView: React.FC<ApprovalsViewProps> = ({
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-0 sm:p-2 max-w-7xl mx-auto">
       <ApprovalsQueueView
         onSelectApproval={(id) => setSelectedApprovalId(id)}
         onNavigateToCreditAssessment={onNavigateToCreditAssessment}

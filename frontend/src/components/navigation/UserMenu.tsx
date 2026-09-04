@@ -58,7 +58,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({ onNavigate }) => {
         </button>
 
         {isOpen && (
-          <div className="absolute right-0 mt-2 w-72 bg-white border border-slate-200 rounded-lg shadow-xl z-50 overflow-hidden text-left">
+          <div className="absolute right-0 mt-2 w-72 max-w-[calc(100vw-1.5rem)] bg-white border border-slate-200 rounded-lg shadow-xl z-50 overflow-hidden text-left">
             {/* User Details Header */}
             <div className="p-3.5 border-b border-slate-200 bg-slate-50/70">
               <div className="font-bold text-xs text-slate-900">{user.name}</div>

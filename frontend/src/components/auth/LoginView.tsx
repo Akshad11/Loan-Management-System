@@ -41,7 +41,7 @@ export const LoginView: React.FC = () => {
   const isSubmitting = authState === 'authenticating';
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans">
+    <div className="min-h-screen bg-slate-100 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 font-sans">
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
         {/* LMS Brand Identity */}
         <div className="inline-flex items-center justify-center w-12 h-12 bg-slate-900 text-white rounded-lg font-black text-xl tracking-tighter mb-3 shadow-none">

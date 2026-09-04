@@ -58,7 +58,7 @@ export const SanctionFilters: React.FC<SanctionFiltersProps> = ({
     <div className="bg-white border border-slate-200 rounded-lg p-4 mb-6 shadow-sm">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         {/* Search input */}
-        <div className="relative flex-1 min-w-[280px]">
+        <div className="relative flex-1 min-w-0">
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
           <input
             type="text"

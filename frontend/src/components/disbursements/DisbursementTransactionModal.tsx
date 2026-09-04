@@ -99,7 +99,7 @@ export const DisbursementTransactionModal: React.FC<DisbursementTransactionModal
           {/* Payment Method */}
           <div>
             <label className="block font-semibold text-slate-700 mb-1">Payment Rail / Method</label>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {(['NEFT', 'RTGS', 'IMPS', 'DIRECT_TRANSFER'] as PaymentMethod[]).map((m) => (
                 <button
                   key={m}

@@ -154,7 +154,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Collapse Toggle Footer */}
-      <div className="p-2 border-t border-slate-200 bg-slate-50/50 flex items-center justify-between">
+      <div className="hidden md:flex p-2 border-t border-slate-200 bg-slate-50/50 items-center justify-between">
         {!isCollapsed && (
           <span className="text-[11px] font-medium text-slate-400 pl-2">Collapse Menu</span>
         )}

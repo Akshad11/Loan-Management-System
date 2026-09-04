@@ -89,7 +89,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ isOpen, onClose, onN
     (showLoans ? loans.length : 0);
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 p-4 sm:p-6 overflow-y-auto flex items-start justify-center pt-16">
+    <div className="fixed inset-0 z-50 bg-slate-900/60 p-2.5 sm:p-6 overflow-y-auto flex items-start justify-center pt-6 sm:pt-16">
       <div className="bg-white rounded-lg border border-slate-200 shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col">
         {/* Search Input Bar */}
         <div className="p-3 border-b border-slate-200 flex items-center gap-3">
@@ -119,14 +119,14 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ isOpen, onClose, onN
           <button
             type="button"
             onClick={onClose}
-            className="text-xs font-semibold px-2 py-1 bg-slate-100 text-slate-600 rounded hover:bg-slate-200"
+            className="text-xs font-semibold px-2 py-1 bg-slate-100 text-slate-600 rounded hover:bg-slate-200 shrink-0"
           >
             ESC
           </button>
         </div>
 
         {/* Category Tabs */}
-        <div className="px-3 py-2 bg-slate-50 border-b border-slate-200 flex items-center gap-2 text-xs">
+        <div className="px-3 py-2 bg-slate-50 border-b border-slate-200 flex items-center gap-2 text-xs overflow-x-auto">
           <span className="text-slate-400 font-medium mr-1">Filter:</span>
           {(['all', 'customers', 'applications', 'loans'] as const).map((type) => (
             <button

@@ -120,7 +120,7 @@ export const NotificationMenu: React.FC<NotificationMenuProps> = ({ onNavigate }
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white border border-slate-200 rounded-lg shadow-lg z-50 overflow-hidden text-left">
+        <div className="absolute -right-12 sm:right-0 mt-2 w-[calc(100vw-1.5rem)] max-w-sm sm:w-96 bg-white border border-slate-200 rounded-lg shadow-lg z-50 overflow-hidden text-left">
           {/* Header */}
           <div className="p-3 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
             <div className="flex items-center gap-2">

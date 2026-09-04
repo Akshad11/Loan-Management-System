@@ -492,7 +492,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
 
       {/* Operational Data Tables Section */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-200 pb-2 gap-2">
           <div className="flex items-center gap-3">
             <button
               type="button"

@@ -57,12 +57,12 @@ export const Modal: React.FC<ModalProps> = ({
         aria-hidden="true"
       />
 
-      <div className="flex min-h-full items-center justify-center p-4 text-center sm:p-6">
+      <div className="flex min-h-full items-center justify-center p-2.5 text-center sm:p-6">
         <div
           className={`relative w-full ${maxWidthClasses[maxWidth]} transform rounded-lg bg-white text-left shadow-xl border border-slate-200 transition-all flex flex-col max-h-[90vh]`}
         >
           {/* Header */}
-          <div className="flex items-start justify-between border-b border-slate-200 px-6 py-4 bg-slate-50 shrink-0 rounded-t-lg">
+          <div className="flex items-start justify-between border-b border-slate-200 px-4 py-3 sm:px-6 sm:py-4 bg-slate-50 shrink-0 rounded-t-lg">
             <div>
               <h3 className="text-base font-semibold text-slate-900">{title}</h3>
               {subtitle && <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>}
@@ -78,11 +78,11 @@ export const Modal: React.FC<ModalProps> = ({
           </div>
 
           {/* Body */}
-          <div className="flex-1 overflow-y-auto p-6">{children}</div>
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6">{children}</div>
 
           {/* Optional Footer */}
           {footer && (
-            <div className="border-t border-slate-200 bg-slate-50 px-6 py-3 shrink-0 flex items-center justify-end gap-3 rounded-b-lg">
+            <div className="border-t border-slate-200 bg-slate-50 px-4 py-3 sm:px-6 shrink-0 flex flex-wrap items-center justify-end gap-2 sm:gap-3 rounded-b-lg">
               {footer}
             </div>
           )}

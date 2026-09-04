@@ -319,7 +319,7 @@ export const ChargesAdjustmentsView: React.FC = () => {
   const selectedTimelineLoan = loans.find((l) => l.id === selectedTimelineLoanId);
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="p-0 sm:p-2 space-y-6 max-w-7xl mx-auto">
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
