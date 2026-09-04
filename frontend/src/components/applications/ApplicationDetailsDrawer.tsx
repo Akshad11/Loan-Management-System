@@ -16,6 +16,8 @@ import {
   Layers,
   History,
   Landmark,
+  CreditCard,
+  Shield,
 } from 'lucide-react';
 import { Drawer } from '../shared/Drawer';
 import { Tabs } from '../shared/Tabs';
@@ -39,6 +41,10 @@ import { formatCurrencyINR } from '../../utils/formatters';
 import { useMockStore } from '../../services/mockService';
 import { DynamicFormRenderer } from '../forms/DynamicFormRenderer';
 import { HOME_LOAN_FORM_SCHEMA } from '../../config/systemTemplates';
+import { BureauAnalysisTab } from '../bureau/BureauAnalysisTab';
+import { CollateralTab } from '../collateral/CollateralTab';
+import { Scale } from 'lucide-react';
+import { CreditReviewWorkbench } from '../credit/CreditReviewWorkbench';
 
 interface ApplicationDetailsDrawerProps {
   isOpen: boolean;
@@ -144,9 +150,24 @@ export const ApplicationDetailsDrawer: React.FC<ApplicationDetailsDrawerProps> =
       icon: <Users className="w-4 h-4" />,
     },
     {
+      id: 'bureau',
+      label: 'Bureau Analysis',
+      icon: <CreditCard className="w-4 h-4" />,
+    },
+    {
+      id: 'collateral',
+      label: 'Collateral & Security',
+      icon: <Shield className="w-4 h-4" />,
+    },
+    {
       id: 'documents',
       label: `Documents (${application.documents.length})`,
       icon: <CheckCircle2 className="w-4 h-4" />,
+    },
+    {
+      id: 'credit_workbench',
+      label: 'Credit Workbench',
+      icon: <Scale className="w-4 h-4 text-emerald-600" />,
     },
     {
       id: 'submission',
@@ -431,10 +452,11 @@ export const ApplicationDetailsDrawer: React.FC<ApplicationDetailsDrawerProps> =
             <CoApplicantManager
               applicationId={application.id}
               primaryApplicantId={application.customerId}
+              primaryApplicantName={application.customerName}
+              primaryMonthlyIncome={Number(application.customerMonthlyIncome || 0)}
               coApplicants={application.coApplicants}
-              allCustomers={allCustomers}
-              onAddCoApplicant={(payload) => onAddCoApplicant(application.id, payload)}
-              onRemoveCoApplicant={(coAppId) => onRemoveCoApplicant(application.id, coAppId)}
+              onCoApplicantChange={() => {}}
+              onViewBureau={() => setActiveTab('bureau')}
               isDraft={isDraft}
               canManageParties={canManageParties}
             />
@@ -450,6 +472,36 @@ export const ApplicationDetailsDrawer: React.FC<ApplicationDetailsDrawerProps> =
               canManageParties={canManageParties}
             />
           </div>
+        )}
+
+        {/* TAB: BUREAU ANALYSIS */}
+        {activeTab === 'bureau' && (
+          <BureauAnalysisTab
+            applicationId={application.id}
+            primaryApplicant={{
+              id: application.customerId,
+              name: application.customerName,
+              panMasked: (application as any).panMasked || (application as any).customer?.panMasked,
+            }}
+            coApplicants={application.coApplicants.map((ca: any) => ({
+              id: ca.id,
+              customerId: ca.customerId,
+              customerName: ca.customerName,
+              panMasked: ca.panMasked,
+              relationship: ca.relationship,
+            }))}
+            readOnly={!isDraft && (application.status as string) === 'CLOSED'}
+          />
+        )}
+
+        {/* TAB: COLLATERAL */}
+        {activeTab === 'collateral' && (
+          <CollateralTab
+            applicationId={application.id}
+            customerId={application.customerId}
+            loanAmount={Number(application.requestedAmount)}
+            readOnly={!isDraft && (application.status as string) === 'CLOSED'}
+          />
         )}
 
         {/* TAB 3: DOCUMENTS & CHECKLIST */}
@@ -541,6 +593,13 @@ export const ApplicationDetailsDrawer: React.FC<ApplicationDetailsDrawerProps> =
               </h3>
               <ApplicationTimeline history={application.history || (store.applicationHistory && store.applicationHistory[application.id]) || []} />
             </div>
+          </div>
+        )}
+
+        {/* Credit Review Workbench Tab */}
+        {activeTab === 'credit_workbench' && (
+          <div className="py-2">
+            <CreditReviewWorkbench applicationId={application.id} />
           </div>
         )}
       </div>

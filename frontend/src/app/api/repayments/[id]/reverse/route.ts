@@ -243,7 +243,6 @@ export async function POST(
         },
       });
 
-      // 9. Update Payment status
       return await tx.payment.update({
         where: { id: payment.id },
         data: {
@@ -261,6 +260,27 @@ export async function POST(
         },
       });
     });
+
+    // 10. Record Compensating Double-Entry Reversal Journal
+    try {
+      const existingJournal = await prisma.journalEntry.findFirst({
+        where: {
+          transactionType: 'REPAYMENT',
+          referenceId: reversedPayment.id,
+          status: 'POSTED',
+        },
+      });
+      if (existingJournal) {
+        const { recordReversalJournal } = await import('@/services/accounting/accountingService');
+        await recordReversalJournal({
+          originalJournalEntryId: existingJournal.id,
+          reason,
+          actorName,
+        });
+      }
+    } catch (acctErr) {
+      console.error('Accounting reversal journal error:', acctErr);
+    }
 
     return NextResponse.json({
       ...reversedPayment,

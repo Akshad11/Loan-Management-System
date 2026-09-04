@@ -17,6 +17,7 @@ import {
   Building2,
   Edit2,
   Download,
+  Shield,
 } from 'lucide-react';
 import { LoanAccountRecord, LoanRepaymentSettings, LoanRepaymentFrequency } from '../../types/loanAccountTypes';
 import { OverviewTab } from './OverviewTab';
@@ -28,6 +29,8 @@ import { RepaymentsTab } from './RepaymentsTab';
 import { RecoveryTab } from './RecoveryTab';
 import { DocumentsTab } from './DocumentsTab';
 import { HistoryTab } from './HistoryTab';
+import { BureauAnalysisTab } from '../bureau/BureauAnalysisTab';
+import { CollateralTab } from '../collateral/CollateralTab';
 import { RepaymentSetupModal } from './RepaymentSetupModal';
 import { ScheduleVersionModal } from './ScheduleVersionModal';
 import { formatCurrencyINR, formatDate } from '../../utils/formatters';
@@ -136,6 +139,8 @@ export const LoanWorkspaceView: React.FC<LoanWorkspaceViewProps> = ({
       label: `Recovery & Legal${recoveryCase ? ` (${recoveryCase.recoveryStage})` : ''}`,
       icon: <ShieldAlert className={`w-4 h-4 ${loan.dpd >= 60 || recoveryCase ? 'text-amber-600' : ''}`} />,
     },
+    { id: 'bureau', label: 'Bureau Analysis', icon: <CreditCard className="w-4 h-4" /> },
+    { id: 'collateral', label: 'Collateral Assets', icon: <Shield className="w-4 h-4" /> },
     { id: 'documents', label: 'Documents', icon: <FileText className="w-4 h-4" /> },
     { id: 'history', label: 'Audit Trail', icon: <History className="w-4 h-4" /> },
   ];
@@ -284,6 +289,24 @@ export const LoanWorkspaceView: React.FC<LoanWorkspaceViewProps> = ({
           onCreateLegalCase={(payload) => store.createLegalCase(payload, currentUser?.name, currentUser?.roleName)}
           onAddLegalCaseEvent={(lcId, evtType, nts, ref, nxt) => store.addLegalCaseEvent(lcId, evtType, nts, ref, nxt, currentUser?.name, currentUser?.roleName)}
           currentUser={currentUser}
+        />
+      )}
+      {activeTab === 'bureau' && (
+        <BureauAnalysisTab
+          applicationId={loan.applicationId || loan.id}
+          primaryApplicant={{
+            id: loan.customerId,
+            name: loan.customerName,
+          }}
+          readOnly={true}
+        />
+      )}
+      {activeTab === 'collateral' && (
+        <CollateralTab
+          loanId={loan.id}
+          customerId={loan.customerId}
+          loanAmount={loan.originalPrincipal || loan.disbursedPrincipal || 0}
+          readOnly={false}
         />
       )}
       {activeTab === 'documents' && <DocumentsTab loan={loan} />}

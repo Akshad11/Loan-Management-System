@@ -132,4 +132,50 @@ export const PERMISSION_CATALOG: PermissionDefinition[] = [
   // Loan Products
   { id: 'perm_prod_view', code: 'LOAN_PRODUCTS:VIEW', name: 'View Loan Products', description: 'Inspect active loan catalog and interest schemes', module: 'LOAN_PRODUCTS', moduleLabel: 'Loan Products Configuration', action: 'VIEW' },
   { id: 'perm_prod_manage', code: 'LOAN_PRODUCTS:MANAGE', name: 'Configure Loan Products', description: 'Define new interest schemes and lending limits', module: 'LOAN_PRODUCTS', moduleLabel: 'Loan Products Configuration', action: 'MANAGE' },
+
+  // Credit Bureau & CIBIL
+  { id: 'perm_bureau_view', code: 'BUREAU:VIEW', name: 'View Credit Bureau Reports', description: 'View CIBIL and credit bureau analysis, score cards, and trade lines', module: 'CREDIT_ASSESSMENT', moduleLabel: 'Credit Assessment & Underwriting', action: 'VIEW' },
+  { id: 'perm_bureau_request', code: 'BUREAU:REQUEST', name: 'Request Bureau Report', description: 'Initiate new credit bureau enquiry for applicant or co-applicant', module: 'CREDIT_ASSESSMENT', moduleLabel: 'Credit Assessment & Underwriting', action: 'CREATE' },
+  { id: 'perm_bureau_refresh', code: 'BUREAU:REFRESH', name: 'Refresh Bureau Report', description: 'Re-pull or refresh existing credit bureau reports', module: 'CREDIT_ASSESSMENT', moduleLabel: 'Credit Assessment & Underwriting', action: 'EDIT' },
+
+  // Co-Applicants & Parties
+  { id: 'perm_coapp_view', code: 'COAPPLICANT:VIEW', name: 'View Co-Applicants', description: 'Access co-applicant profiles, KYC, and financial summaries', module: 'APPLICATIONS', moduleLabel: 'Loan Origination & Applications', action: 'VIEW' },
+  { id: 'perm_coapp_create', code: 'COAPPLICANT:CREATE', name: 'Add Co-Applicant', description: 'Add new or link existing customer as co-applicant', module: 'APPLICATIONS', moduleLabel: 'Loan Origination & Applications', action: 'CREATE' },
+  { id: 'perm_coapp_edit', code: 'COAPPLICANT:EDIT', name: 'Edit Co-Applicant', description: 'Modify co-applicant details, ownership share, or primary designation', module: 'APPLICATIONS', moduleLabel: 'Loan Origination & Applications', action: 'EDIT' },
+  { id: 'perm_coapp_delete', code: 'COAPPLICANT:DELETE', name: 'Remove Co-Applicant', description: 'Unlink or remove co-applicants before submission', module: 'APPLICATIONS', moduleLabel: 'Loan Origination & Applications', action: 'DELETE' },
+
+  // Collateral Management
+  { id: 'perm_collat_view', code: 'COLLATERAL:VIEW', name: 'View Collateral Details', description: 'Inspect collateral records, asset details, and LTV ratios', module: 'APPLICATIONS', moduleLabel: 'Loan Origination & Applications', action: 'VIEW' },
+  { id: 'perm_collat_create', code: 'COLLATERAL:CREATE', name: 'Create Collateral Record', description: 'Pledge new collateral assets to applications or loans', module: 'APPLICATIONS', moduleLabel: 'Loan Origination & Applications', action: 'CREATE' },
+  { id: 'perm_collat_edit', code: 'COLLATERAL:EDIT', name: 'Edit Collateral Record', description: 'Update asset details, ownership, or pledged status', module: 'APPLICATIONS', moduleLabel: 'Loan Origination & Applications', action: 'EDIT' },
+  { id: 'perm_collat_delete', code: 'COLLATERAL:DELETE', name: 'Remove Collateral Record', description: 'Delete or release pledged collateral assets', module: 'APPLICATIONS', moduleLabel: 'Loan Origination & Applications', action: 'DELETE' },
+  { id: 'perm_collat_verify', code: 'COLLATERAL:VERIFY', name: 'Verify Collateral (Legal/Tech)', description: 'Record legal search reports and technical inspection clearance', module: 'APPLICATIONS', moduleLabel: 'Loan Origination & Applications', action: 'APPROVE' },
+  { id: 'perm_collat_valuation', code: 'COLLATERAL:VALUATION', name: 'Record Asset Valuation', description: 'Update market valuation, forced sale value, and re-estimate LTV', module: 'APPLICATIONS', moduleLabel: 'Loan Origination & Applications', action: 'EDIT' },
+
+  // Batch 4: Workflow, Credit Review, Documents & Decisions
+  { id: 'perm_credit_wb_view', code: 'CREDIT:VIEW', name: 'View Credit Workbench', description: 'Access credit review workbench and dossier', module: 'CREDIT_ASSESSMENT', moduleLabel: 'Credit Assessment & Underwriting', action: 'VIEW' },
+  { id: 'perm_credit_wb_review', code: 'CREDIT:REVIEW', name: 'Review Credit Dossier', description: 'Perform underwriting evaluation across applicant, bureau, and collateral', module: 'CREDIT_ASSESSMENT', moduleLabel: 'Credit Assessment & Underwriting', action: 'EDIT' },
+  { id: 'perm_credit_wb_recommend', code: 'CREDIT:RECOMMEND', name: 'Recommend Credit Proposal', description: 'Recommend approval or conditional sanction to committee', module: 'CREDIT_ASSESSMENT', moduleLabel: 'Credit Assessment & Underwriting', action: 'SUBMIT' },
+  { id: 'perm_credit_wb_approve', code: 'CREDIT:APPROVE', name: 'Approve Credit Proposal', description: 'Execute formal credit sanction within assigned authority', module: 'APPROVALS', moduleLabel: 'Approvals & Committee Governance', action: 'APPROVE', isHighRiskFinancial: true },
+  { id: 'perm_credit_wb_reject', code: 'CREDIT:REJECT', name: 'Reject Credit Proposal', description: 'Execute formal credit rejection decision', module: 'APPROVALS', moduleLabel: 'Approvals & Committee Governance', action: 'REJECT', isHighRiskFinancial: true },
+  { id: 'perm_credit_wb_return', code: 'CREDIT:RETURN', name: 'Return for Correction', description: 'Return application with structured correction checklist', module: 'CREDIT_ASSESSMENT', moduleLabel: 'Credit Assessment & Underwriting', action: 'REJECT' },
+  { id: 'perm_chk_view', code: 'CHECKLIST:VIEW', name: 'View Review Checklist', description: 'View underwriting and compliance checklists', module: 'CREDIT_ASSESSMENT', moduleLabel: 'Credit Assessment & Underwriting', action: 'VIEW' },
+  { id: 'perm_chk_update', code: 'CHECKLIST:UPDATE', name: 'Update Checklist Item', description: 'Mark checklist items verified, waived, or failed', module: 'CREDIT_ASSESSMENT', moduleLabel: 'Credit Assessment & Underwriting', action: 'EDIT' },
+  { id: 'perm_doc_verify', code: 'DOCUMENT:VERIFY', name: 'Verify Application Document', description: 'Inspect and mark documents verified', module: 'APPLICATIONS', moduleLabel: 'Loan Origination & Applications', action: 'APPROVE' },
+  { id: 'perm_doc_reject', code: 'DOCUMENT:REJECT', name: 'Reject Application Document', description: 'Reject document with mandatory explanation', module: 'APPLICATIONS', moduleLabel: 'Loan Origination & Applications', action: 'REJECT' },
+  { id: 'perm_wf_assign', code: 'WORKFLOW:ASSIGN', name: 'Assign Workflow Application', description: 'Allocate applications to credit underwriters and checkers', module: 'APPLICATIONS', moduleLabel: 'Loan Origination & Applications', action: 'MANAGE' },
+  { id: 'perm_wf_reassign', code: 'WORKFLOW:REASSIGN', name: 'Reassign Workflow Application', description: 'Reassign application to alternate officer', module: 'APPLICATIONS', moduleLabel: 'Loan Origination & Applications', action: 'MANAGE' },
+  { id: 'perm_dec_view', code: 'DECISION:VIEW', name: 'View Credit Decisions', description: 'Access formal decision history, conditions, and returns', module: 'CREDIT_ASSESSMENT', moduleLabel: 'Credit Assessment & Underwriting', action: 'VIEW' },
+
+  // Batch 5: Disbursement, Repayment, Mandates, Reconciliation & Post-Approval Controls
+  { id: 'perm_disb_create', code: 'DISBURSEMENT:CREATE', name: 'Create Disbursement Request', description: 'Create full or partial disbursement request instructions', module: 'DISBURSEMENT', moduleLabel: 'Disbursements & Bank Payouts', action: 'CREATE' },
+  { id: 'perm_disb_request', code: 'DISBURSEMENT:REQUEST', name: 'Submit Disbursement for Approval', description: 'Submit disbursement tranche for checker authorization', module: 'DISBURSEMENT', moduleLabel: 'Disbursements & Bank Payouts', action: 'SUBMIT' },
+  { id: 'perm_disb_approve', code: 'DISBURSEMENT:APPROVE', name: 'Approve Disbursement Request', description: 'Authorize payout tranche under authority limit', module: 'DISBURSEMENT', moduleLabel: 'Disbursements & Bank Payouts', action: 'APPROVE', isHighRiskFinancial: true },
+  { id: 'perm_disb_reject', code: 'DISBURSEMENT:REJECT', name: 'Reject Disbursement Request', description: 'Reject payout tranche with reason', module: 'DISBURSEMENT', moduleLabel: 'Disbursements & Bank Payouts', action: 'REJECT', isHighRiskFinancial: true },
+  { id: 'perm_disb_reverse', code: 'DISBURSEMENT:REVERSE', name: 'Reverse Disbursement Transaction', description: 'Execute compensating accounting reversal on failed/recalled payout', module: 'DISBURSEMENT', moduleLabel: 'Disbursements & Bank Payouts', action: 'REVERSE_PAYMENT', isHighRiskFinancial: true },
+  { id: 'perm_repay_allocate', code: 'REPAYMENTS:ALLOCATE', name: 'Execute Repayment Allocation', description: 'Run waterfall payment allocation across fees, interest, and principal', module: 'REPAYMENTS', moduleLabel: 'Repayments & Ledger', action: 'POST_PAYMENT', isHighRiskFinancial: true },
+  { id: 'perm_mandate_view', code: 'MANDATE:VIEW', name: 'View Repayment Mandates', description: 'Browse active and pending NACH/eMandate records', module: 'REPAYMENTS', moduleLabel: 'Repayments & Ledger', action: 'VIEW' },
+  { id: 'perm_mandate_manage', code: 'MANDATE:MANAGE', name: 'Manage Repayment Mandates', description: 'Register, activate, or cancel customer auto-debit mandates', module: 'REPAYMENTS', moduleLabel: 'Repayments & Ledger', action: 'MANAGE', isHighRiskFinancial: true },
+  { id: 'perm_recon_view', code: 'RECONCILIATION:VIEW', name: 'View Reconciliation Reports', description: 'Inspect 3-way reconciliation batches and discrepancies', module: 'REPORTS', moduleLabel: 'Reporting & Analytics', action: 'VIEW' },
+  { id: 'perm_recon_execute', code: 'RECONCILIATION:EXECUTE', name: 'Execute Operational Reconciliation', description: 'Run automated 3-way matching between LMS, Bank, and GL', module: 'REPORTS', moduleLabel: 'Reporting & Analytics', action: 'MANAGE', isHighRiskFinancial: true },
 ];

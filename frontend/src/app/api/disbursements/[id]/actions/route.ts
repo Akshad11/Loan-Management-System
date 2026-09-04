@@ -67,7 +67,10 @@ export async function POST(
       });
     } else if (action === 'APPROVE') {
       // Maker-Checker Segregation of Duties Enforcement
-      if (reqItem.requestedByName && reqItem.requestedByName.trim().toLowerCase() === actorName.trim().toLowerCase()) {
+      if (
+        (reqItem.requestedBy && reqItem.requestedBy === actorUser.id) ||
+        (reqItem.requestedByName && reqItem.requestedByName.trim().toLowerCase() === actorName.trim().toLowerCase())
+      ) {
         return NextResponse.json(
           {
             error: 'Segregation of Duties Violation: You cannot approve a disbursement request that you created. A separate approver is required.',

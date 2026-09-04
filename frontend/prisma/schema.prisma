@@ -98,6 +98,17 @@ enum AuditEntityType {
   CREDIT_ASSESSMENT
   APPROVAL
   SETTINGS
+  BUREAU
+  CO_APPLICANT
+  COLLATERAL
+  CHECKLIST
+  CREDIT_DECISION
+  DEVIATION
+  RETURN_CORRECTION
+  JOURNAL
+  BANK_ACCOUNT
+  MANDATE
+  RECONCILIATION
 }
 
 model AdminAuditLog {
@@ -211,6 +222,9 @@ model Customer {
   financialAdjustments FinancialAdjustmentRequest[]
   closureRequests      LoanClosureRequest[]
   nocRecords           NocRecord[]
+  collaterals          Collateral[]
+  bankAccounts         CustomerBankAccount[]
+  mandates             RepaymentMandate[]
 
   @@map("customers")
 }
@@ -338,13 +352,21 @@ enum ApplicationStatus {
   SUBMITTED
   UNDER_REVIEW
   DOCUMENT_PENDING
+  DOCUMENT_REVIEW
+  BUREAU_REVIEW
+  ELIGIBILITY_REVIEW
+  CREDIT_REVIEW
+  DEVIATION_REVIEW
+  APPROVAL
   CREDIT_ASSESSMENT
   CREDIT_ASSESSED
   APPROVED
   SANCTIONED
   DISBURSED
   REJECTED
+  WITHDRAWN
   CANCELLED
+  RETURNED_FOR_CORRECTION
 }
 
 model LoanApplication {
@@ -399,32 +421,110 @@ model LoanApplication {
   loans                      LoanAccount[]
   disbursements              Disbursement[]
   formResponse               LoanApplicationFormResponse?
+  bureauReports              BureauReport[]
+  collaterals                Collateral[]
+  checklistItems             CreditChecklistItem[]
+  decisions                  CreditDecisionRecord[]
+  returnHistory              ApplicationReturnHistory[]
+  deviations                 ApplicationDeviation[]
 
   @@index([productId])
   @@map("loan_applications")
 }
 
 model CoApplicant {
-  id                 String          @id @default(uuid())
-  applicationId      String
-  customerId         String
-  customerNumber     String
-  customerName       String
-  mobile             String
-  relationship       String
-  kycStatus          String          @default("VERIFIED")
-  monthlyIncome      Decimal?        @db.Decimal(14, 2)
-  panMasked          String?
-  existingLoansCount Int?            @default(0)
-  totalOutstanding   Decimal?        @db.Decimal(14, 2)
-  notes              String?
-  addedAt            DateTime        @default(now())
-  addedBy            String
+  id                  String          @id @default(uuid())
+  applicationId       String
+  customerId          String
+  customerNumber      String
+  customerName        String
+  mobile              String
+  email               String?
+  panMasked           String?
+  pan                 String?
+  aadhaarMasked       String?
+  dob                 DateTime?
+  gender              String?
+  relationship        String
+  applicantType       String          @default("CO_APPLICANT") // CO_APPLICANT | GUARANTOR
+  ownershipShare      Decimal?        @db.Decimal(5, 2)
+  isPrimary           Boolean         @default(false)
+  kycStatus           String          @default("VERIFIED")
+  monthlyIncome       Decimal?        @db.Decimal(14, 2)
+  existingObligations Decimal?        @db.Decimal(14, 2)
+  employerName        String?
+  employmentType      String?         @default("SALARIED")
+  address             Json?
+  existingLoansCount  Int?            @default(0)
+  totalOutstanding    Decimal?        @db.Decimal(14, 2)
+  cibilScore          Int?
+  consentObtained     Boolean         @default(true)
+  consentDate         DateTime?       @default(now())
+  notes               String?
+  addedAt             DateTime        @default(now())
+  addedBy             String
 
-  application        LoanApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  application         LoanApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
 
   @@index([applicationId])
+  @@index([customerId])
   @@map("co_applicants")
+}
+
+enum BureauStatus {
+  NOT_REQUESTED
+  REQUESTED
+  PROCESSING
+  RECEIVED
+  FAILED
+  EXPIRED
+  MANUAL_REVIEW
+}
+
+model BureauReport {
+  id                   String       @id @default(uuid())
+  applicationId        String
+  applicantId          String       // customerId or coApplicantId
+  applicantType        String       @default("PRIMARY") // PRIMARY | CO_APPLICANT
+  applicantName        String
+  panMasked            String
+  provider             String       @default("CIBIL") // CIBIL | EXPERIAN | EQUIFAX | CRIF
+  referenceNumber      String?
+  status               BureauStatus @default(NOT_REQUESTED)
+  score                Int?
+  scoreDate            DateTime?
+  scoreBand            String?      // POOR | FAIR | GOOD | EXCELLENT
+  totalAccounts        Int?         @default(0)
+  activeAccounts       Int?         @default(0)
+  closedAccounts       Int?         @default(0)
+  creditCardAccounts   Int?         @default(0)
+  totalOutstanding     Decimal?     @db.Decimal(14, 2)
+  totalOverdue         Decimal?     @db.Decimal(14, 2)
+  securedExposure      Decimal?     @db.Decimal(14, 2)
+  unsecuredExposure    Decimal?     @db.Decimal(14, 2)
+  dpd30PlusCount       Int?         @default(0)
+  dpd90PlusCount       Int?         @default(0)
+  defaultsCount        Int?         @default(0)
+  settlementsCount     Int?         @default(0)
+  recentEnquiriesCount Int?         @default(0)
+  creditAccounts       Json?        // Normalized accounts array
+  enquiries            Json?        // Normalized enquiries array
+  riskIndicators       Json?        // Normalized flags/remarks
+  scoreHistory         Json?        // Historical 12-month scores
+  rawResponse          Json?        // Sensitive provider raw response
+  failureReason        String?
+  retryCount           Int          @default(0)
+  pulledAt             DateTime?
+  pulledBy             String?
+  expiresAt            DateTime?
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  application          LoanApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+  @@index([applicantId])
+  @@map("bureau_reports")
 }
 
 model Guarantor {
@@ -459,8 +559,12 @@ model ApplicationDocument {
   fileName        String?
   fileFormat      String?         @default("PDF")
   fileSizeKb      Int?            @default(0)
-  status          String          @default("UPLOADED")
+  status          String          @default("UPLOADED") // REQUIRED, PENDING, UPLOADED, UNDER_REVIEW, VERIFIED, REJECTED, EXPIRED
   isMandatory     Boolean         @default(true)
+  applicantId     String?
+  applicantType   String?         @default("PRIMARY") // PRIMARY, CO_APPLICANT, COLLATERAL
+  collateralId    String?
+  expiryDate      DateTime?
   uploadedAt      DateTime?       @default(now())
   uploadedBy      String?
   verifiedAt      DateTime?
@@ -471,6 +575,8 @@ model ApplicationDocument {
   application     LoanApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
 
   @@index([applicationId])
+  @@index([applicantId])
+  @@index([collateralId])
   @@map("application_documents")
 }
 
@@ -707,10 +813,13 @@ enum DisbursementStatus {
   DRAFT
   VERIFICATION_PENDING
   READY
+  READY_FOR_DISBURSEMENT
   PENDING_APPROVAL
   APPROVED
   PROCESSING
+  PARTIAL
   SUCCESSFUL
+  DISBURSED
   RETURNED
   REJECTED
   FAILED
@@ -725,7 +834,9 @@ enum DisbursementType {
 
 enum TransactionStatus {
   PENDING
+  REQUESTED
   PROCESSING
+  SUCCESS
   SUCCESSFUL
   FAILED
   REVERSED
@@ -1016,6 +1127,7 @@ model LoanAccount {
   foreclosureQuotes          ForeclosureQuote[]
   settlementProposals        SettlementProposal[]
   nocRecords                 NocRecord[]
+  collaterals                Collateral[]
 
   @@index([customerId])
   @@index([applicationId])
@@ -2305,6 +2417,359 @@ model LoanApplicationFormResponse {
   @@index([productId])
   @@map("loan_application_form_responses")
 }
+
+// ----------------------------------------------------
+// Collateral Management
+// ----------------------------------------------------
+
+enum CollateralType {
+  PROPERTY
+  VEHICLE
+  EQUIPMENT
+  GOLD
+  FINANCIAL_SECURITY
+  OTHER
+}
+
+enum ValuationStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  REJECTED
+  EXPIRED
+}
+
+model Collateral {
+  id                      String          @id @default(uuid())
+  collateralNumber        String          @unique
+  applicationId           String?
+  loanId                  String?
+  customerId              String
+  collateralType          CollateralType
+  assetSubtype            String          // RESIDENTIAL_FLAT, COMMERCIAL_SHOP, SEDAN, GOLD_ORNAMENTS, FIXED_DEPOSIT, etc.
+  title                   String
+  description             String?
+  ownershipType           String          @default("SOLE") // SOLE | JOINT | THIRD_PARTY
+  ownerName               String
+  ownerRelationship       String?
+  assetIdentifier         String?         // Survey No, Chassis No, Reg No, FD Acc No
+  registrationNumber      String?
+  addressLine1            String?
+  city                    String?
+  state                   String?
+  pinCode                 String?
+  purchaseValue           Decimal?        @db.Decimal(14, 2)
+  currentMarketValue      Decimal         @db.Decimal(14, 2)
+  forcedSaleValue         Decimal?        @db.Decimal(14, 2)
+  valuationAmount         Decimal         @db.Decimal(14, 2)
+  valuationDate           DateTime?
+  valuerName              String?
+  valuerFirm              String?
+  valuationStatus         ValuationStatus @default(PENDING)
+  valuationReportNumber   String?
+  calculatedLtv           Decimal?        @db.Decimal(6, 2)
+  legalVerificationStatus String          @default("PENDING") // PENDING | CLEARED | ISSUES_IDENTIFIED | WAIVED
+  legalAdvocateName       String?
+  technicalStatus         String          @default("PENDING") // PENDING | APPROVED | REJECTED | WAIVED
+  technicalEngineerName   String?
+  insurancePolicyNumber   String?
+  insuranceCompany        String?
+  insuredAmount           Decimal?        @db.Decimal(14, 2)
+  insuranceExpiryDate     DateTime?
+  documentIds             String[]
+  status                  String          @default("PLEDGED") // PLEDGED | VERIFIED | RELEASED | REJECTED
+  notes                   String?
+  createdAt               DateTime        @default(now())
+  updatedAt               DateTime        @updatedAt
+  createdBy               String?
+  updatedBy               String?
+
+  application             LoanApplication? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  loan                    LoanAccount?     @relation(fields: [loanId], references: [id], onDelete: SetNull)
+  customer                Customer         @relation(fields: [customerId], references: [id])
+  valuationHistory        CollateralValuationHistory[]
+
+  @@index([applicationId])
+  @@index([loanId])
+  @@index([customerId])
+  @@map("collaterals")
+}
+
+model CollateralValuationHistory {
+  id              String     @id @default(uuid())
+  collateralId    String
+  valuationDate   DateTime   @default(now())
+  valuerName      String
+  valuerFirm      String?
+  marketValue     Decimal    @db.Decimal(14, 2)
+  forcedSaleValue Decimal?   @db.Decimal(14, 2)
+  reportNumber    String?
+  notes           String?
+  createdBy       String
+  createdAt       DateTime   @default(now())
+
+  collateral      Collateral @relation(fields: [collateralId], references: [id], onDelete: Cascade)
+
+  @@index([collateralId])
+  @@map("collateral_valuation_histories")
+}
+
+// ----------------------------------------------------
+// Priority LMS Batch 4: Workflow, Checklists, Decisions & Deviations
+// ----------------------------------------------------
+
+model ProductDocumentRequirement {
+  id            String   @id @default(uuid())
+  productCode   String   @default("ALL") // 'ALL' or specific product code like 'HL_01'
+  documentType  String   // 'IDENTITY_PROOF', 'ADDRESS_PROOF', 'INCOME_PROOF', 'BANK_STATEMENT', 'PROPERTY_TITLE', 'VALUATION_REPORT', 'LEGAL_REPORT'
+  documentTitle String
+  applicantType String   @default("PRIMARY") // PRIMARY, CO_APPLICANT, COLLATERAL
+  isMandatory   Boolean  @default(true)
+  description   String?
+  createdAt     DateTime @default(now())
+
+  @@index([productCode])
+  @@map("product_document_requirements")
+}
+
+model CreditChecklistItem {
+  id            String          @id @default(uuid())
+  applicationId String
+  itemCode      String          // 'KYC_VERIFIED', 'INCOME_VERIFIED', 'BUREAU_REVIEWED', 'COLLATERAL_VALUATED', 'LEGAL_CLEARED', 'TECH_CLEARED', 'ELIGIBILITY_PASSED', 'DEVIATIONS_RESOLVED', 'ROI_APPROVED', 'DOCS_VERIFIED'
+  title         String
+  category      String          @default("GENERAL") // 'APPLICANT', 'BUREAU', 'COLLATERAL', 'FINANCIAL', 'COMPLIANCE'
+  isRequired    Boolean         @default(true)
+  status        String          @default("PENDING") // PENDING, PASSED, FAILED, WAIVED
+  reviewerId    String?
+  reviewerName  String?
+  reviewedAt    DateTime?
+  remarks       String?
+  evidenceRef   String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  application   LoanApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+  @@map("credit_checklist_items")
+}
+
+model CreditDecisionRecord {
+  id                   String          @id @default(uuid())
+  decisionNumber       String          @unique
+  applicationId        String
+  decision             String          // 'APPROVE', 'REJECT', 'APPROVE_WITH_CONDITIONS', 'RETURN'
+  decisionMakerId      String
+  decisionMakerName    String
+  decisionMakerRole    String
+  authorityLevel       String          @default("LEVEL_1_OFFICER")
+  decisionDate         DateTime        @default(now())
+  approvedAmount       Decimal?        @db.Decimal(14, 2)
+  approvedTenureMonths Int?
+  approvedRoi          Decimal?        @db.Decimal(5, 2)
+  conditions           Json?           // Covenants and conditions array
+  deviationsConsidered Json?
+  remarks              String?
+  creditNotes          String?
+  makerId              String?
+  makerName            String?
+  cycleNumber          Int             @default(1)
+  createdAt            DateTime        @default(now())
+
+  application          LoanApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+  @@map("credit_decision_records")
+}
+
+model ApplicationReturnHistory {
+  id                  String          @id @default(uuid())
+  applicationId       String
+  cycleNumber         Int             @default(1)
+  returnStage         String
+  returnReason        String
+  comments            String
+  requiredCorrections Json            // Array of required fixes / items
+  returnedById        String
+  returnedByName      String
+  returnedByRole      String
+  timestamp           DateTime        @default(now())
+  resubmittedAt       DateTime?
+  resubmittedById     String?
+  resubmittedByName   String?
+
+  application         LoanApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+  @@map("application_return_history")
+}
+
+model ApplicationDeviation {
+  id              String          @id @default(uuid())
+  deviationNumber String          @unique
+  applicationId   String
+  category        String          @default("POLICY") // POLICY, FOIR, LTV, CIBIL, ROI, DOCUMENT, TENURE
+  title           String
+  deviationReason String
+  mitigantNotes   String?
+  status          String          @default("PENDING") // PENDING, APPROVED, REJECTED
+  severity        String          @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+  requestedRoi    Decimal?        @db.Decimal(5, 2)
+  approvedRoi     Decimal?        @db.Decimal(5, 2)
+  requestedBy     String
+  requestedByName String
+  requestedAt     DateTime        @default(now())
+  approvedBy      String?
+  approvedByName  String?
+  approvedAt      DateTime?
+  rejectionReason String?
+
+  application     LoanApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+  @@map("application_deviations")
+}
+
+// ----------------------------------------------------
+// Priority LMS Batch 5: Accounting / GL, Bank Accounts, Mandates & Reconciliation
+// ----------------------------------------------------
+
+model JournalEntry {
+  id              String           @id @default(uuid())
+  entryNumber     String           @unique // JRN-2026-000001
+  postingDate     DateTime         @default(now())
+  transactionType String           // DISBURSEMENT, REPAYMENT, REVERSAL, FEE_ACCRUAL, WAIVER, PENALTY
+  referenceId     String?          // e.g. disbursementId, paymentId, transactionReference
+  loanId          String?
+  accountNumber   String?
+  narration       String
+  totalDebit      Decimal          @db.Decimal(14, 2)
+  totalCredit     Decimal          @db.Decimal(14, 2)
+  status          String           @default("POSTED") // POSTED, REVERSED
+  reversedAt      DateTime?
+  reversalEntryId String?
+  idempotencyKey  String?          @unique
+  createdBy       String
+  createdAt       DateTime         @default(now())
+
+  postings        JournalPosting[]
+
+  @@index([transactionType])
+  @@index([referenceId])
+  @@index([loanId])
+  @@map("journal_entries")
+}
+
+model JournalPosting {
+  id             String       @id @default(uuid())
+  journalEntryId String
+  glAccountCode  String       // '1001' (Cash/Bank), '1002' (Loan Asset / Principal), '4001' (Interest), '4002' (Fees), '4003' (Penalties), '2002' (Suspense)
+  glAccountName  String
+  debitAmount    Decimal      @default(0.00) @db.Decimal(14, 2)
+  creditAmount   Decimal      @default(0.00) @db.Decimal(14, 2)
+  narration      String?
+
+  journalEntry   JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+
+  @@index([journalEntryId])
+  @@index([glAccountCode])
+  @@map("journal_postings")
+}
+
+model CustomerBankAccount {
+  id                     String    @id @default(uuid())
+  customerId             String
+  accountHolderName      String
+  accountNumberMasked    String
+  accountNumberEncrypted String?
+  ifscCode               String
+  bankName               String
+  branchName             String?
+  accountType            String    @default("SAVINGS") // SAVINGS, CURRENT, SALARY
+  verificationStatus     String    @default("VERIFIED") // PENDING, VERIFIED, FAILED
+  verificationDate       DateTime? @default(now())
+  isPrimary              Boolean   @default(true)
+  purpose                String    @default("DISBURSEMENT_AND_REPAYMENT") // DISBURSEMENT, REPAYMENT, REFUND, ALL
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  customer               Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@map("customer_bank_accounts")
+}
+
+model RepaymentMandate {
+  id                 String    @id @default(uuid())
+  mandateNumber      String    @unique // MND-2026-000001
+  umrn               String?   // Unique Mandate Reference Number
+  customerId         String
+  loanId             String?
+  bankAccountId      String?
+  provider           String    @default("NPCI_NACH") // NPCI_NACH, E_MANDATE, RAZORPAY, CASHFREE
+  maxAmount          Decimal   @db.Decimal(14, 2)
+  frequency          String    @default("MONTHLY")
+  startDate          DateTime
+  endDate            DateTime
+  status             String    @default("PENDING") // CREATED, PENDING, ACTIVE, FAILED, CANCELLED, EXPIRED
+  failureReason      String?
+  providerResponse   Json?
+  cancelledAt        DateTime?
+  cancelledBy        String?
+  cancellationReason String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  customer           Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@index([loanId])
+  @@index([umrn])
+  @@index([status])
+  @@map("repayment_mandates")
+}
+
+model ReconciliationBatch {
+  id            String               @id @default(uuid())
+  batchNumber   String               @unique // REC-2026-0001
+  batchType     String               @default("DISBURSEMENT") // DISBURSEMENT, REPAYMENT, COMBINED
+  reconDate     DateTime             @default(now())
+  totalCount    Int                  @default(0)
+  matchedCount  Int                  @default(0)
+  mismatchCount Int                  @default(0)
+  status        String               @default("COMPLETED") // PROCESSING, COMPLETED, FAILED
+  summary       Json?
+  performedBy   String
+  createdAt     DateTime             @default(now())
+
+  items         ReconciliationItem[]
+
+  @@map("reconciliation_batches")
+}
+
+model ReconciliationItem {
+  id                String              @id @default(uuid())
+  batchId           String
+  itemType          String              // DISBURSEMENT, REPAYMENT
+  lmsReference      String              // Transaction Reference / Request Number
+  providerReference String?             // UTR / Gateway Payment ID
+  lmsAmount         Decimal             @db.Decimal(14, 2)
+  providerAmount    Decimal?            @db.Decimal(14, 2)
+  glAmount          Decimal?            @db.Decimal(14, 2)
+  status            String              @default("MATCHED") // MATCHED, AMOUNT_MISMATCH, STATUS_MISMATCH, MISSING_IN_BANK, MISSING_IN_GL, DUPLICATE
+  discrepancyNote   String?
+  resolved          Boolean             @default(false)
+  resolvedBy        String?
+  resolvedAt        DateTime?
+  resolutionNotes   String?
+
+  batch             ReconciliationBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@index([batchId])
+  @@index([status])
+  @@map("reconciliation_items")
+}
+
 
 
 

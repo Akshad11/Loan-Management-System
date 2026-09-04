@@ -170,6 +170,9 @@ export function generateRepaymentSchedule(params: {
   startDate: string;
   firstDueDate: string;
   feesPerInstalment?: number;
+  repaymentMethod?: 'EMI' | 'PRINCIPAL_PLUS_INTEREST' | 'INTEREST_ONLY' | 'BULLET';
+  moratoriumMonths?: number;
+  gracePeriodDays?: number;
   createdBy: string;
 }): ScheduleGenerationResult {
   const {
@@ -183,21 +186,29 @@ export function generateRepaymentSchedule(params: {
     interestMethod,
     firstDueDate,
     feesPerInstalment = 0,
+    repaymentMethod = 'EMI',
+    moratoriumMonths = 0,
+    gracePeriodDays = 0,
     createdBy,
   } = params;
 
   const totalInstalments = calculateTotalInstalments(tenureMonths, frequency);
-  const emiAmount = calculateInstalmentAmount({
-    principal,
-    annualRate,
-    tenureMonths,
-    frequency,
-    interestMethod,
-  });
-
   const periodsPerYear = getFrequencyFactor(frequency);
   const periodicRate = annualRate > 0 ? annualRate / 100 / periodsPerYear : 0;
   const versionId = `rsv_${loanId}_v${versionNumber}_${Date.now()}`;
+
+  // Moratorium instalments
+  const moratoriumInstalments = moratoriumMonths > 0 ? calculateTotalInstalments(moratoriumMonths, frequency) : 0;
+  const postMoratoriumInstalments = Math.max(1, totalInstalments - moratoriumInstalments);
+
+  // Post-moratorium EMI
+  const emiAmount = calculateInstalmentAmount({
+    principal,
+    annualRate,
+    tenureMonths: Math.max(1, tenureMonths - moratoriumMonths),
+    frequency,
+    interestMethod,
+  });
 
   const schedules: RepaymentScheduleItem[] = [];
   let currentPrincipal = roundMoney(principal);
@@ -205,6 +216,8 @@ export function generateRepaymentSchedule(params: {
     interestMethod === 'FLAT_RATE' || interestMethod === 'SIMPLE_INTEREST'
       ? roundMoney((principal * (annualRate / 100) * (tenureMonths / 12)) / totalInstalments)
       : 0;
+
+  const equalPrincipalPerInstalment = roundMoney(principal / postMoratoriumInstalments);
 
   for (let i = 0; i < totalInstalments; i++) {
     const instalmentNumber = i + 1;
@@ -214,11 +227,26 @@ export function generateRepaymentSchedule(params: {
     let interestDue = 0;
     let principalDue = 0;
 
-    if (interestMethod === 'FLAT_RATE' || interestMethod === 'SIMPLE_INTEREST') {
+    const inMoratorium = i < moratoriumInstalments;
+
+    if (inMoratorium) {
+      // In moratorium: only service interest, principal is zero
+      interestDue = roundMoney(openingPrincipal * periodicRate);
+      principalDue = 0;
+    } else if (repaymentMethod === 'INTEREST_ONLY') {
+      interestDue = roundMoney(openingPrincipal * periodicRate);
+      principalDue = instalmentNumber === totalInstalments ? openingPrincipal : 0;
+    } else if (repaymentMethod === 'BULLET') {
+      interestDue = roundMoney(openingPrincipal * periodicRate);
+      principalDue = instalmentNumber === totalInstalments ? openingPrincipal : 0;
+    } else if (repaymentMethod === 'PRINCIPAL_PLUS_INTEREST') {
+      principalDue = equalPrincipalPerInstalment;
+      interestDue = roundMoney(openingPrincipal * periodicRate);
+    } else if (interestMethod === 'FLAT_RATE' || interestMethod === 'SIMPLE_INTEREST') {
       interestDue = flatInterestPerInstalment;
-      principalDue = roundMoney(principal / totalInstalments);
+      principalDue = roundMoney(principal / postMoratoriumInstalments);
     } else {
-      // Reducing balance
+      // Standard reducing balance (Amortized EMI)
       interestDue = roundMoney(openingPrincipal * periodicRate);
       principalDue = roundMoney(emiAmount - interestDue);
     }

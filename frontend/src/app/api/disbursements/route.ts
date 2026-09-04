@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { requireAuth, writeAuditLog } from '@/lib/serverAuth';
+import { executePreDisbursementGatekeeper } from '@/services/disbursement/preDisbursementGatekeeper';
 
 export const dynamic = 'force-dynamic';
 
@@ -131,6 +132,21 @@ export async function POST(request: Request) {
         { error: `Cannot create disbursement for sanction with status "${sanction.status}". Sanction must be confirmed first.` },
         { status: 400 }
       );
+    }
+
+    // Validate pre-disbursement compliance gates
+    if (sanction.applicationId) {
+      const gateResult = await executePreDisbursementGatekeeper(sanction.applicationId);
+      if (!gateResult.isEligible) {
+        return NextResponse.json(
+          {
+            error: 'Pre-disbursement compliance check failed.',
+            blockingReasons: gateResult.blockingReasons,
+            checks: gateResult.checks,
+          },
+          { status: 422 }
+        );
+      }
     }
 
     // Find or create top-level disbursement record

@@ -51,6 +51,22 @@ export async function POST(
       );
     }
 
+    // Pre-Disbursement Compliance Gatekeeper Enforcement
+    if (disbursement.applicationId) {
+      const { executePreDisbursementGatekeeper } = await import('@/services/disbursement/preDisbursementGatekeeper');
+      const gateResult = await executePreDisbursementGatekeeper(disbursement.applicationId);
+      if (!gateResult.isEligible && !simulateFailure) {
+        return NextResponse.json(
+          {
+            error: 'Disbursement Blocked: Pre-disbursement compliance checks failed.',
+            blockingReasons: gateResult.blockingReasons,
+            checks: gateResult.checks,
+          },
+          { status: 422 }
+        );
+      }
+    }
+
     const beneficiary =
       disbursement.beneficiaries.find((b) => b.id === reqItem.beneficiaryId) ||
       disbursement.beneficiaries[0];
@@ -61,7 +77,37 @@ export async function POST(
       utrNumber ||
       `${paymentMethod.slice(0, 4)}R${new Date().toISOString().slice(0, 10).replace(/-/g, '')}${Math.floor(100000 + Math.random() * 900000)}`;
 
+    const { executePayout } = await import('@/services/payment/payoutService');
+    const { recordDisbursementAccounting } = await import('@/services/accounting/accountingService');
+
+    let payoutResult;
     if (simulateFailure) {
+      payoutResult = {
+        status: 'FAILED' as const,
+        payoutId: reqItem.id,
+        correlationId: txnRef,
+        providerReference: externalReference || 'BANK-ERR-502',
+        valueDate: new Date().toISOString().split('T')[0],
+        failureReason: failureReason || 'Beneficiary bank network rejected the transaction.',
+        isRetryable: false,
+      };
+    } else {
+      payoutResult = await executePayout({
+        payoutId: reqItem.id,
+        correlationId: txnRef,
+        amount: Number(reqItem.requestedAmount),
+        beneficiaryName: beneficiary?.beneficiaryName || disbursement.customerName,
+        accountNumber: beneficiary?.accountNumber || '50200084920192',
+        ifscCode: beneficiary?.ifscCode || 'HDFC0000120',
+        paymentMode: (paymentMethod as any) || 'NEFT',
+        purpose: reqItem.purpose || 'Loan Disbursement Payout',
+        idempotencyKey: `payout_dsb_${reqItem.id}`,
+        sanctionNumber: disbursement.sanctionNumber,
+        borrowerName: disbursement.customerName,
+      });
+    }
+
+    if (payoutResult.status === 'FAILED') {
       // Record failed transaction
       await prisma.disbursementTransaction.create({
         data: {
@@ -75,8 +121,8 @@ export async function POST(
           beneficiaryAccountNumberMasked: beneficiary?.accountNumberMasked || '•••• •••• •••• 0000',
           beneficiaryIfsc: beneficiary?.ifscCode || 'HDFC0000120',
           bankName: beneficiary?.bankName || 'HDFC Bank Ltd',
-          externalReference: externalReference || 'BANK-ERR-502',
-          failureReason: failureReason || 'Beneficiary bank network rejected the transaction.',
+          externalReference: payoutResult.providerReference || 'BANK-ERR-502',
+          failureReason: payoutResult.failureReason || failureReason || 'Beneficiary bank network rejected the transaction.',
           processingStartedAt: new Date(),
           failedAt: new Date(),
         },
@@ -103,15 +149,17 @@ export async function POST(
                 newState: 'FAILED',
                 amount: reqItem.requestedAmount,
                 reference: txnRef,
-                notes: `Payout transaction failed: ${failureReason || 'Beneficiary bank rejected transaction.'}`,
+                notes: `Payout transaction failed: ${payoutResult.failureReason || 'Beneficiary bank rejected transaction.'}`,
               },
             ],
           },
         },
       });
     } else {
-      // Successful transaction execution
+      // Successful / Processing transaction execution
       const reqAmount = Number(reqItem.requestedAmount);
+      const isSuccess = payoutResult.status === 'SUCCESS';
+      const effectiveUtr = payoutResult.utrNumber || generatedUtr;
 
       await prisma.disbursementTransaction.create({
         data: {
@@ -120,52 +168,65 @@ export async function POST(
           requestId: reqItem.id,
           amount: reqAmount,
           paymentMethod: paymentMethod as any,
-          status: 'SUCCESSFUL',
+          status: isSuccess ? 'SUCCESSFUL' : 'PROCESSING',
           beneficiaryName: beneficiary?.beneficiaryName || disbursement.customerName,
           beneficiaryAccountNumberMasked: beneficiary?.accountNumberMasked || '•••• •••• •••• 0000',
           beneficiaryIfsc: beneficiary?.ifscCode || 'HDFC0000120',
           bankName: beneficiary?.bankName || 'HDFC Bank Ltd',
-          externalReference: externalReference || `EXT-${paymentMethod}-${Date.now()}`,
-          utrNumber: generatedUtr,
+          externalReference: payoutResult.providerReference || `EXT-${paymentMethod}-${Date.now()}`,
+          utrNumber: effectiveUtr,
           processingStartedAt: new Date(),
-          completedAt: new Date(),
+          completedAt: isSuccess ? new Date() : null,
         },
       });
 
       await prisma.disbursementRequest.update({
         where: { id: reqItem.id },
-        data: { status: 'SUCCESSFUL' },
+        data: { status: isSuccess ? 'SUCCESSFUL' : 'PROCESSING' },
       });
 
       const newTotalDisbursed = Number(disbursement.totalDisbursedAmount) + reqAmount;
       const newRemaining = Math.max(0, Number(disbursement.sanctionAmount) - newTotalDisbursed);
+      const finalStatus = newRemaining === 0 ? 'DISBURSED' : 'PARTIAL';
 
       await prisma.disbursement.update({
         where: { id: disbursement.id },
         data: {
           totalDisbursedAmount: newTotalDisbursed,
           remainingAmount: newRemaining,
-          status: 'SUCCESSFUL',
+          status: finalStatus as any,
           firstDisbursedAt: disbursement.firstDisbursedAt || new Date(),
           lastDisbursedAt: new Date(),
           history: {
             create: [
               {
                 requestId: reqItem.id,
-                event: 'TRANSACTION_SUCCESSFUL',
+                event: isSuccess ? 'TRANSACTION_SUCCESSFUL' : 'TRANSACTION_PROCESSING',
                 actor: actorName,
                 actorName,
                 actorRole,
                 previousState: 'APPROVED',
-                newState: 'SUCCESSFUL',
+                newState: finalStatus,
                 amount: reqAmount,
-                reference: generatedUtr,
-                notes: `Payout of ₹${reqAmount.toLocaleString('en-IN')} successfully completed via ${paymentMethod}. UTR: ${generatedUtr}. Remaining Sanction Balance: ₹${newRemaining.toLocaleString('en-IN')}.`,
+                reference: effectiveUtr,
+                notes: `Payout of ₹${reqAmount.toLocaleString('en-IN')} via ${paymentMethod} (${payoutResult.status}). UTR: ${effectiveUtr}. Remaining Sanction Balance: ₹${newRemaining.toLocaleString('en-IN')}.`,
               },
             ],
           },
         },
       });
+
+      // Post balanced double-entry accounting journal
+      if (isSuccess) {
+        await recordDisbursementAccounting({
+          disbursementId: disbursement.id,
+          disbursementNumber: disbursement.disbursementNumber,
+          loanId: disbursement.applicationId,
+          grossAmount: reqAmount,
+          netPayoutAmount: reqAmount,
+          actorName,
+        });
+      }
 
       // If fully disbursed, update application status
       if (newRemaining === 0) {
@@ -273,6 +334,23 @@ export async function PUT(
         },
       },
     });
+
+    // Check if journal entry exists for this disbursement, and reverse it
+    const existingJournal = await prisma.journalEntry.findFirst({
+      where: {
+        transactionType: 'DISBURSEMENT',
+        referenceId: disbursement.id,
+        status: 'POSTED',
+      },
+    });
+    if (existingJournal) {
+      const { recordReversalJournal } = await import('@/services/accounting/accountingService');
+      await recordReversalJournal({
+        originalJournalEntryId: existingJournal.id,
+        reason,
+        actorName,
+      });
+    }
 
     const updated = await prisma.disbursement.findUnique({
       where: { id },

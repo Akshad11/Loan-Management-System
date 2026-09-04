@@ -77,6 +77,58 @@ export const PERMISSION_ALIASES: Record<string, string[]> = {
   manage_system_config: ['perm_sys_manage', 'SYSTEM_CONFIG:MANAGE', 'perm_config_edit', 'SETTINGS:MANAGE'],
   view_audit_logs: ['perm_audit_view', 'AUDIT:VIEW'],
 
+  // Bureau Analysis
+  'bureau.view': ['perm_bureau_view', 'BUREAU:VIEW', 'perm_credit_view', 'CREDIT:VIEW'],
+  'bureau.request': ['perm_bureau_request', 'BUREAU:REQUEST', 'perm_credit_conduct', 'CREDIT:CONDUCT'],
+  'bureau.refresh': ['perm_bureau_refresh', 'BUREAU:REFRESH', 'perm_credit_conduct', 'CREDIT:CONDUCT'],
+  view_bureau: ['perm_bureau_view', 'BUREAU:VIEW'],
+  request_bureau: ['perm_bureau_request', 'BUREAU:REQUEST'],
+
+  // Co-Applicants
+  'coapplicant.view': ['perm_coapp_view', 'COAPPLICANT:VIEW', 'perm_app_view', 'APPLICATIONS:VIEW'],
+  'coapplicant.create': ['perm_coapp_create', 'COAPPLICANT:CREATE', 'perm_app_edit', 'APPLICATIONS:EDIT', 'perm_app_party_manage'],
+  'coapplicant.edit': ['perm_coapp_edit', 'COAPPLICANT:EDIT', 'perm_app_edit', 'APPLICATIONS:EDIT', 'perm_app_party_manage'],
+  'coapplicant.delete': ['perm_coapp_delete', 'COAPPLICANT:DELETE', 'perm_app_edit', 'APPLICATIONS:EDIT', 'perm_app_party_manage'],
+
+  // Collateral Management
+  'collateral.view': ['perm_collat_view', 'COLLATERAL:VIEW', 'perm_app_view', 'APPLICATIONS:VIEW', 'perm_loan_view', 'LOANS:VIEW'],
+  'collateral.create': ['perm_collat_create', 'COLLATERAL:CREATE', 'perm_app_edit', 'APPLICATIONS:EDIT'],
+  'collateral.edit': ['perm_collat_edit', 'COLLATERAL:EDIT', 'perm_app_edit', 'APPLICATIONS:EDIT'],
+  'collateral.delete': ['perm_collat_delete', 'COLLATERAL:DELETE', 'perm_app_edit', 'APPLICATIONS:EDIT'],
+  'collateral.verify': ['perm_collat_verify', 'COLLATERAL:VERIFY', 'perm_credit_conduct', 'CREDIT:CONDUCT', 'APPROVAL:APPROVE'],
+  'collateral.valuation': ['perm_collat_valuation', 'COLLATERAL:VALUATION', 'perm_credit_conduct', 'CREDIT:CONDUCT'],
+
+  // Batch 4: Workflow, Credit Review, Documents & Decisions
+  'credit.view': ['perm_credit_wb_view', 'CREDIT:VIEW', 'perm_credit_view', 'CREDIT_ASSESSMENT:VIEW'],
+  'credit.review': ['perm_credit_wb_review', 'CREDIT:REVIEW', 'perm_credit_assess', 'CREDIT:ASSESS', 'CREDIT_ASSESSMENT:EDIT'],
+  'credit.recommend': ['perm_credit_wb_recommend', 'CREDIT:RECOMMEND', 'perm_credit_submit', 'CREDIT:SUBMIT'],
+  'credit.approve': ['perm_credit_wb_approve', 'CREDIT:APPROVE', 'perm_appr_action', 'APPROVALS:APPROVE', 'APPROVAL:APPROVE'],
+  'credit.reject': ['perm_credit_wb_reject', 'CREDIT:REJECT', 'perm_appr_reject', 'APPROVALS:REJECT', 'APPROVAL:REJECT'],
+  'credit.return': ['perm_credit_wb_return', 'CREDIT:RETURN', 'perm_credit_return', 'perm_appr_return', 'APPROVALS:RETURN'],
+  'checklist.view': ['perm_chk_view', 'CHECKLIST:VIEW', 'perm_credit_wb_view', 'CREDIT:VIEW'],
+  'checklist.update': ['perm_chk_update', 'CHECKLIST:UPDATE', 'perm_credit_wb_review', 'CREDIT:REVIEW'],
+  'document.verify': ['perm_doc_verify', 'DOCUMENT:VERIFY', 'perm_kyc_verify', 'KYC:VERIFY', 'APPLICATIONS:VERIFY_DOCUMENT'],
+  'document.reject': ['perm_doc_reject', 'DOCUMENT:REJECT', 'perm_kyc_verify', 'KYC:VERIFY'],
+  'workflow.assign': ['perm_wf_assign', 'WORKFLOW:ASSIGN', 'perm_credit_assign', 'CREDIT:ASSIGN', 'APPROVALS:ASSIGN'],
+  'workflow.reassign': ['perm_wf_reassign', 'WORKFLOW:REASSIGN', 'perm_appr_reassign', 'APPROVALS:REASSIGN'],
+  'decision.view': ['perm_dec_view', 'DECISION:VIEW', 'perm_credit_wb_view', 'CREDIT:VIEW', 'perm_appr_view', 'APPROVALS:VIEW'],
+
+  // Batch 5: Disbursement, Repayment, Mandates & Reconciliation
+  'disbursement.view': ['perm_disb_view', 'DISBURSEMENT:VIEW', 'view_disbursements'],
+  'disbursement.create': ['perm_disb_create', 'DISBURSEMENT:CREATE', 'create_disbursement_request', 'execute_disbursement'],
+  'disbursement.request': ['perm_disb_request', 'DISBURSEMENT:REQUEST', 'create_disbursement_request', 'perm_disb_create'],
+  'disbursement.approve': ['perm_disb_approve', 'DISBURSEMENT:APPROVE', 'approve_disbursement', 'perm_appr_approve'],
+  'disbursement.reject': ['perm_disb_reject', 'DISBURSEMENT:REJECT', 'perm_appr_reject'],
+  'disbursement.reverse': ['perm_disb_reverse', 'DISBURSEMENT:REVERSE', 'perm_repay_reverse'],
+  'repayment.view': ['perm_repay_view', 'REPAYMENTS:VIEW', 'view_repayments'],
+  'repayment.post': ['perm_repay_post', 'REPAYMENTS:POST', 'post_repayment'],
+  'repayment.reverse': ['perm_repay_reverse', 'REPAYMENTS:REVERSE', 'reverse_repayment'],
+  'repayment.allocate': ['perm_repay_allocate', 'REPAYMENTS:ALLOCATE', 'perm_repay_post', 'manage_repayments'],
+  'mandate.view': ['perm_mandate_view', 'MANDATE:VIEW', 'perm_repay_view', 'view_loans'],
+  'mandate.manage': ['perm_mandate_manage', 'MANDATE:MANAGE', 'perm_repay_post', 'manage_repayments'],
+  'reconciliation.view': ['perm_recon_view', 'RECONCILIATION:VIEW', 'perm_rep_view', 'view_reports'],
+  'reconciliation.execute': ['perm_recon_execute', 'RECONCILIATION:EXECUTE', 'perm_rep_view', 'view_reports'],
+
   // Generic / Core
   view_dashboard: ['perm_app_view', 'perm_cust_view', 'DASHBOARD:VIEW'],
 };

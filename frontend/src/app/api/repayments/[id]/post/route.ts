@@ -296,6 +296,27 @@ export async function POST(
       return finalPayment;
     });
 
+    // 11. Record Balanced Double-Entry Accounting Journal
+    try {
+      const { recordRepaymentAccounting } = await import('@/services/accounting/accountingService');
+      const allocSummary = (postedPayment.receipt?.allocationSummary as any) || {};
+      await recordRepaymentAccounting({
+        paymentId: postedPayment.id,
+        paymentNumber: postedPayment.paymentNumber,
+        loanId: loan.id,
+        accountNumber: loan.accountNumber,
+        totalAmount: Number(postedPayment.amount),
+        principalPortion: Number(allocSummary.principal || 0),
+        interestPortion: Number(allocSummary.interest || 0),
+        feePortion: Number(allocSummary.fees || 0),
+        penaltyPortion: Number(allocSummary.penalty || 0),
+        unallocatedPortion: Number(postedPayment.unallocatedAmount || 0),
+        actorName,
+      });
+    } catch (acctErr) {
+      console.error('Accounting journal error (non-blocking for UI):', acctErr);
+    }
+
     return NextResponse.json({
       ...postedPayment,
       amount: Number(postedPayment.amount),
