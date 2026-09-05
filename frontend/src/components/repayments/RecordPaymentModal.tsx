@@ -19,6 +19,7 @@ import {
 } from '../../types/repaymentTypes';
 import { formatCurrencyINR, formatDate } from '../../utils/formatters';
 import { roundMoney } from '../../services/loanFinancialService';
+import { ValidationPopup } from '../shared/ValidationPopup';
 
 interface RecordPaymentModalProps {
   isOpen: boolean;
@@ -52,9 +53,12 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
   const [referenceNumber, setReferenceNumber] = useState<string>('');
   const [bankName, setBankName] = useState<string>('');
   const [channel, setChannel] = useState<string>('');
-  const [notes, setNotes] = useState<string>('');
+  const [notes, setNotes] = useState<string>(
+    ''
+  );
   const [requireVerification, setRequireVerification] = useState<boolean>(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isValidationPopupOpen, setIsValidationPopupOpen] = useState<boolean>(false);
 
   const filteredLoans = useMemo(() => {
     if (!loanSearch.trim()) return loans.slice(0, 8);
@@ -151,6 +155,7 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
+      setIsValidationPopupOpen(true);
       return;
     }
 
@@ -539,6 +544,16 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
             </button>
           </div>
         </div>
+
+        {/* Validation Warning Popup */}
+        <ValidationPopup
+          isOpen={isValidationPopupOpen}
+          onClose={() => setIsValidationPopupOpen(false)}
+          title="Payment Validation Incomplete"
+          subtitle="Please correct the following requirements before posting this repayment transaction:"
+          errors={errors}
+          fixLabel="Back to Payment Form"
+        />
       </div>
     </div>
   );

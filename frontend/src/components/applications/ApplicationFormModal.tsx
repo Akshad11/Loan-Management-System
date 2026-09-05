@@ -12,6 +12,7 @@ import {
   Search,
 } from 'lucide-react';
 import { Modal } from '../shared/Modal';
+import { ValidationPopup } from '../shared/ValidationPopup';
 import {
   LoanProductConfig,
   LoanApplicationRecord,
@@ -93,6 +94,7 @@ export const ApplicationFormModal: React.FC<ApplicationFormModalProps> = ({
     editingApplication?.loanOfficer || 'Siddharth Rao'
   );
   const [notes, setNotes] = useState<string>(editingApplication?.notes || '');
+  const [isValidationPopupOpen, setIsValidationPopupOpen] = useState<boolean>(false);
 
   // Reset or initialize on open
   useEffect(() => {
@@ -199,7 +201,10 @@ export const ApplicationFormModal: React.FC<ApplicationFormModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (errors.length > 0) return;
+    if (errors.length > 0) {
+      setIsValidationPopupOpen(true);
+      return;
+    }
 
     onSubmit({
       customerId: selectedCustomerId,
@@ -528,12 +533,27 @@ export const ApplicationFormModal: React.FC<ApplicationFormModalProps> = ({
           </button>
           <button
             type="submit"
-            disabled={errors.length > 0}
-            className="px-5 py-2 text-sm font-medium text-white bg-slate-900 hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-md shadow-sm"
+            onClick={(e) => {
+              if (errors.length > 0) {
+                e.preventDefault();
+                setIsValidationPopupOpen(true);
+              }
+            }}
+            className="px-5 py-2 text-sm font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-md shadow-sm transition-colors cursor-pointer"
           >
             {isEdit ? 'Save Application Terms' : 'Originate Draft Application'}
           </button>
         </div>
+
+        {/* Validation Warning Popup */}
+        <ValidationPopup
+          isOpen={isValidationPopupOpen}
+          onClose={() => setIsValidationPopupOpen(false)}
+          title="Application Validation Required"
+          subtitle="Please resolve the following criteria before originating or saving this application:"
+          errors={errors}
+          fixLabel="Back to Application Form"
+        />
       </form>
     </Modal>
   );

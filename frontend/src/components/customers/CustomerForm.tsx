@@ -26,6 +26,7 @@ import {
   AlertCircle,
   HelpCircle,
 } from 'lucide-react';
+import { ValidationPopup } from '../shared/ValidationPopup';
 
 interface CustomerFormProps {
   initialData?: Partial<CustomerRecord>;
@@ -108,6 +109,7 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
 
   // Errors state
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isValidationPopupOpen, setIsValidationPopupOpen] = useState<boolean>(false);
 
   const handleSameAsCurrentChange = (checked: boolean) => {
     setSameAsCurrent(checked);
@@ -198,6 +200,7 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateAll()) {
+      setIsValidationPopupOpen(true);
       return;
     }
 
@@ -826,6 +829,27 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
           {isEditing ? 'Save Changes' : 'Create Customer'}
         </button>
       </div>
+
+      {/* Interactive Validation Popup Message */}
+      <ValidationPopup
+        isOpen={isValidationPopupOpen}
+        onClose={() => setIsValidationPopupOpen(false)}
+        title="Customer Validation Incomplete"
+        subtitle="The following mandatory fields must be completed or corrected before saving this customer:"
+        errors={errors}
+        onFixErrors={() => {
+          // Find first error field and scroll to it
+          const firstErrorKey = Object.keys(errors)[0];
+          if (firstErrorKey) {
+            const inputEl = document.querySelector(`[name="${firstErrorKey}"]`) as HTMLElement;
+            if (inputEl) {
+              inputEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              inputEl.focus();
+            }
+          }
+        }}
+        fixLabel="Review & Complete Fields"
+      />
     </form>
   );
 };
