@@ -38,10 +38,10 @@ checkDatabase();
 '
 
 echo "📦 Synchronizing Prisma database schema..."
-npx prisma db push --skip-generate
+npx prisma db push --accept-data-loss
 
 echo "🔍 Evaluating database seed status..."
-node -e '
+SEED_REQUIRED=$(node -e '
 const { Pool } = require("pg");
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL
@@ -49,35 +49,35 @@ const pool = new Pool({
 
 async function evaluateSeed() {
   if (process.env.FORCE_SEED === "true") {
-    console.log(">> FORCE_SEED=true detected. Proceeding with database seed.");
-    process.exit(10);
+    process.stdout.write("YES");
+    await pool.end();
+    return;
   }
   try {
     const res = await pool.query("SELECT COUNT(*) FROM users;");
     const userCount = parseInt(res.rows[0].count, 10);
     if (userCount === 0) {
-      console.log(">> Database has 0 users. Performing initial baseline seed.");
-      process.exit(10);
+      process.stdout.write("YES");
     } else {
-      console.log(`>> Database already contains ${userCount} user(s). Skipping automatic wipe & seed.`);
-      process.exit(0);
+      process.stdout.write("NO");
     }
   } catch (err) {
-    console.log(">> Could not query users table:", err.message, "Proceeding with seed.");
-    process.exit(10);
+    process.stdout.write("YES");
   } finally {
     await pool.end();
   }
 }
 evaluateSeed();
-'
-SEED_DECISION=$?
+')
 
-if [ "$SEED_DECISION" -eq 10 ]; then
-  echo "🌱 Seeding initial roles, branches, products, and default administrator..."
+if [ "$SEED_REQUIRED" = "YES" ]; then
+  echo "🌱 Database empty or FORCE_SEED active. Seeding baseline master data & administrator..."
   npx tsx prisma/seed.ts
   echo "✅ Database seed completed successfully."
+else
+  echo ">> Database already contains user records. Preserving existing data."
 fi
+
 
 echo "🚀 Launching Next.js Production Web Server on port ${PORT:-3000}..."
 exec "$@"

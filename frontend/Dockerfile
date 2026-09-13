@@ -5,24 +5,28 @@
 # ------------------------------------------------------------------------------
 # Stage 1: Install Dependencies
 # ------------------------------------------------------------------------------
-FROM node:20-alpine AS deps
-RUN apk add --no-cache libc6-compat
+FROM node:22-alpine AS deps
+RUN apk add --no-cache libc6-compat openssl
 WORKDIR /app
 
+# Copy package manifests and Prisma schema for postinstall hook
 COPY package.json package-lock.json ./
+COPY prisma ./prisma
+COPY prisma.config.ts ./
+
 RUN npm ci
 
 # ------------------------------------------------------------------------------
 # Stage 2: Build Next.js & Generate Prisma Client
 # ------------------------------------------------------------------------------
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 RUN apk add --no-cache libc6-compat openssl
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Generate Prisma Client
+# Ensure Prisma client is fully generated
 ENV PRISMA_GENERATE_DATAPROXY=false
 RUN npx prisma generate
 
@@ -34,7 +38,7 @@ RUN npm run build
 # ------------------------------------------------------------------------------
 # Stage 3: Production Runtime
 # ------------------------------------------------------------------------------
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 RUN apk add --no-cache libc6-compat openssl bash
 WORKDIR /app
 
