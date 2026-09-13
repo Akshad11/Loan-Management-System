@@ -2,6 +2,10 @@
 
 This document details the configuration, environment requirements, database setup, and post-deployment verification procedures for deploying the FinTech Loan Management System to **Vercel**.
 
+> [!TIP]
+> Looking for containerized deployment (Next.js + PostgreSQL) on Windows, Linux, or Cloud VM?
+> See the [Docker Deployment Guide (DOCKER.md)](file:///g:/Coding/VS%20code/Loan%20ms/DOCKER.md) or launch with `run.bat`.
+
 ---
 
 ## 1. Vercel Project Settings
