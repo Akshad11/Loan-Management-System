@@ -67,7 +67,7 @@ export const ProposeSettlementModal: React.FC<ProposeSettlementModalProps> = ({
     }
 
     if (!reason.trim()) {
-      setErrorMsg('Please provide a justification and hardship explanation.');
+      setErrorMsg('Justification reason is mandatory for settlement.');
       return;
     }
 

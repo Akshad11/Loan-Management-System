@@ -118,17 +118,21 @@ export async function POST(request: Request) {
       proposedSettlementAmount,
       paymentDeadline,
       hardshipCategory,
-      reason,
+      reason: rawReason,
+      settlementReason,
+      justification,
       requestedBy,
       requestedByName,
       requestedByRole,
     } = body;
 
+    const reason = (rawReason || settlementReason || justification || '').trim();
+
     if (!loanId) {
       return NextResponse.json({ error: 'Loan ID is required.' }, { status: 400 });
     }
 
-    if (!reason || !reason.trim()) {
+    if (!reason) {
       return NextResponse.json({ error: 'Justification reason is mandatory.' }, { status: 400 });
     }
 

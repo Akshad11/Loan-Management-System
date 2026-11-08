@@ -439,6 +439,47 @@ export async function POST(request: Request) {
       },
     });
 
+    if (scheduleResult.schedules && scheduleResult.schedules.length > 0) {
+      const scheduleVersion = await prisma.repaymentScheduleVersion.create({
+        data: {
+          loanId: loan.id,
+          version: 1,
+          reason: 'Initial schedule created on loan activation.',
+          effectiveDate: startDate,
+          totalInstalments: scheduleResult.totalInstalments,
+          totalPrincipal: principal,
+          totalInterest: scheduleResult.totalInterest,
+          totalAmount: principal + scheduleResult.totalInterest,
+          status: 'ACTIVE',
+          createdBy: body.createdBy || 'Operations Officer',
+        },
+      });
+
+      for (const item of scheduleResult.schedules) {
+        await prisma.repaymentSchedule.create({
+          data: {
+            loanId: loan.id,
+            versionId: scheduleVersion.id,
+            versionNumber: 1,
+            instalmentNumber: item.instalmentNumber,
+            dueDate: item.dueDate,
+            openingPrincipal: item.openingPrincipal,
+            principalDue: item.principalDue,
+            interestDue: item.interestDue,
+            feesDue: item.feesDue || 0,
+            instalmentAmount: item.instalmentAmount,
+            closingPrincipal: item.closingPrincipal,
+            principalPaid: 0,
+            interestPaid: 0,
+            feesPaid: 0,
+            totalPaid: 0,
+            outstandingAmount: item.instalmentAmount,
+            status: item.instalmentNumber === 1 ? 'DUE' : 'FUTURE',
+          },
+        }).catch(() => null);
+      }
+    }
+
     return NextResponse.json(loan, { status: 201 });
   } catch (error: any) {
     console.error('API /loans POST error:', error);

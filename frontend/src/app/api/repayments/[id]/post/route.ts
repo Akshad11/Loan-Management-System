@@ -17,7 +17,7 @@ export async function POST(
     const body = await request.json().catch(() => ({}));
     const { actorName = 'Operations Officer', actorRole = 'Operations Officer' } = body;
 
-    const payment = await prisma.payment.findFirst({
+    let payment = await prisma.payment.findFirst({
       where: { OR: [{ id }, { paymentNumber: id }] },
       include: {
         allocations: true,
@@ -25,6 +25,65 @@ export async function POST(
         history: true,
       },
     });
+
+    if (!payment && body.payment) {
+      const p = body.payment;
+      const targetLoan = await prisma.loanAccount.findFirst({
+        where: {
+          OR: [
+            p.loanId ? { id: p.loanId } : undefined,
+            p.loanId ? { accountNumber: p.loanId } : undefined,
+            p.accountNumber ? { accountNumber: p.accountNumber } : undefined,
+          ].filter(Boolean) as any[],
+        },
+      });
+
+      if (targetLoan) {
+        payment = await prisma.payment.create({
+          data: {
+            id: p.id || undefined,
+            paymentNumber: p.paymentNumber || `PAY-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`,
+            loanId: targetLoan.id,
+            accountNumber: targetLoan.accountNumber,
+            customerId: targetLoan.customerId,
+            customerNumber: targetLoan.customerNumber,
+            customerName: targetLoan.customerName,
+            amount: Number(p.amount),
+            allocatedAmount: 0,
+            unallocatedAmount: 0,
+            paymentDate: p.paymentDate || new Date().toISOString().split('T')[0],
+            valueDate: p.valueDate || p.paymentDate || new Date().toISOString().split('T')[0],
+            paymentMethod: p.paymentMethod || 'NACH_EMANDATE',
+            referenceNumber: p.referenceNumber,
+            bankName: p.bankName,
+            channel: p.channel,
+            status: 'RECEIVED',
+            idempotencyKey: p.idempotencyKey,
+            notes: p.notes,
+            receivedBy: actorUser.id,
+            receivedByName: actorUser.name,
+            history: {
+              create: {
+                event: 'RECEIVED',
+                actor: actorUser.name,
+                actorName: actorUser.name,
+                actorRole: 'Operations Officer',
+                previousState: 'NONE',
+                newState: 'RECEIVED',
+                amount: Number(p.amount),
+                reference: p.referenceNumber,
+                notes: `Payment of ₹${Number(p.amount).toLocaleString('en-IN')} recorded.`,
+              },
+            },
+          },
+          include: {
+            allocations: true,
+            receipt: true,
+            history: true,
+          },
+        });
+      }
+    }
 
     if (!payment) {
       return NextResponse.json({ error: 'Payment not found' }, { status: 404 });
@@ -57,6 +116,65 @@ export async function POST(
 
     if (!loan) {
       return NextResponse.json({ error: 'Associated loan account not found' }, { status: 404 });
+    }
+
+    // Auto-generate schedules in DB if loan currently has none
+    if (loan.schedules.length === 0) {
+      const { generateRepaymentSchedule } = await import('@/services/loanFinancialService');
+      const genResult = generateRepaymentSchedule({
+        loanId: loan.id,
+        versionNumber: 1,
+        reason: 'Initial schedule created on loan activation.',
+        principal: Number(loan.originalPrincipal || loan.outstandingPrincipal),
+        annualRate: Number(loan.interestRate || 14.0),
+        tenureMonths: loan.totalTenureMonths || 36,
+        frequency: (loan.repaymentFrequency as any) || 'MONTHLY',
+        interestMethod: (loan.interestMethod as any) || 'REDUCING_BALANCE',
+        startDate: loan.loanStartDate ? new Date(loan.loanStartDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        firstDueDate: loan.firstDueDate ? new Date(loan.firstDueDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        createdBy: actorName,
+      });
+
+      const origPrincipal = Number(loan.originalPrincipal || loan.outstandingPrincipal);
+      const scheduleVersion = await prisma.repaymentScheduleVersion.create({
+        data: {
+          loanId: loan.id,
+          version: 1,
+          reason: 'Initial schedule created on loan activation.',
+          effectiveDate: new Date().toISOString().split('T')[0],
+          totalInstalments: genResult.totalInstalments,
+          totalPrincipal: origPrincipal,
+          totalInterest: genResult.totalInterest,
+          totalAmount: origPrincipal + genResult.totalInterest,
+          status: 'ACTIVE',
+          createdBy: actorName,
+        },
+      });
+
+      for (const item of genResult.schedules) {
+        const createdSch = await prisma.repaymentSchedule.create({
+          data: {
+            loanId: loan.id,
+            versionId: scheduleVersion.id,
+            versionNumber: 1,
+            instalmentNumber: item.instalmentNumber,
+            dueDate: item.dueDate,
+            openingPrincipal: item.openingPrincipal,
+            principalDue: item.principalDue,
+            interestDue: item.interestDue,
+            feesDue: item.feesDue || 0,
+            instalmentAmount: item.instalmentAmount,
+            closingPrincipal: item.closingPrincipal,
+            principalPaid: 0,
+            interestPaid: 0,
+            feesPaid: 0,
+            totalPaid: 0,
+            outstandingAmount: item.instalmentAmount,
+            status: item.instalmentNumber === 1 ? 'DUE' : 'FUTURE',
+          },
+        });
+        loan.schedules.push(createdSch as any);
+      }
     }
 
     // Convert Prisma types to domain record for allocation engine
@@ -135,19 +253,29 @@ export async function POST(
 
       // 2. Update Repayment Schedules
       for (const sch of allocResult.updatedSchedules) {
-        await tx.repaymentSchedule.update({
-          where: { id: sch.id },
-          data: {
-            principalPaid: sch.principalPaid,
-            interestPaid: sch.interestPaid,
-            feesPaid: sch.feesPaid,
-            totalPaid: sch.totalPaid,
-            outstandingAmount: sch.outstandingAmount,
-            status: sch.status,
-            paidDate: sch.paidDate,
-            paymentReference: sch.paymentReference,
+        const found = await tx.repaymentSchedule.findFirst({
+          where: {
+            OR: [
+              { id: sch.id },
+              { loanId: loan.id, instalmentNumber: sch.instalmentNumber },
+            ],
           },
         });
+        if (found) {
+          await tx.repaymentSchedule.update({
+            where: { id: found.id },
+            data: {
+              principalPaid: sch.principalPaid,
+              interestPaid: sch.interestPaid,
+              feesPaid: sch.feesPaid,
+              totalPaid: sch.totalPaid,
+              outstandingAmount: sch.outstandingAmount,
+              status: sch.status,
+              paidDate: sch.paidDate,
+              paymentReference: sch.paymentReference,
+            },
+          });
+        }
       }
 
       // 3. Update Charges

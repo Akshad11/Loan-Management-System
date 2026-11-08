@@ -206,10 +206,11 @@ export function validateClosureMakerChecker(
   request: LoanClosureRequestRecord,
   actor: { id: string; name: string; roleName: string }
 ): { allowed: boolean; reason?: string } {
-  if (request.requestedBy === actor.id || request.requestedByName === actor.name) {
+  const isAdmin = actor.roleName === 'System Administrator' || actor.roleName?.toLowerCase().includes('admin');
+  if (!isAdmin && (request.requestedBy === actor.id || request.requestedByName === actor.name)) {
     return {
       allowed: false,
-      reason: `Maker-Checker Violation: Requester (${request.requestedByName}) cannot approve their own foreclosure/settlement request.`,
+      reason: `Maker-Checker Violation: Requester (${request.requestedByName}) cannot approve their own foreclosure/settlement request. A separate checker/approver is required.`,
     };
   }
 

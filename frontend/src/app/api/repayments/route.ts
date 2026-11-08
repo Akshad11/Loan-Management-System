@@ -175,7 +175,8 @@ export async function POST(request: Request) {
 
     const newPayment = await prisma.payment.create({
       data: {
-        paymentNumber,
+        id: body.id || undefined,
+        paymentNumber: body.paymentNumber || paymentNumber,
         loanId: loan.id,
         accountNumber: loan.accountNumber,
         customerId: loan.customerId,

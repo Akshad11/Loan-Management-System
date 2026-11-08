@@ -34,9 +34,9 @@ export async function POST(
 
     // Maker-checker segregation of duties validation
     const makerChecker = validateClosureMakerChecker(closureReq as any, {
-      id: approverId || 'usr_mgr_01',
-      name: approverName || 'Branch Credit Committee Head',
-      roleName: approverRole || 'Branch Manager / Approver',
+      id: approverId || actorUser.id,
+      name: approverName || actorUser.name,
+      roleName: approverRole || actorUser.roleName,
     });
 
     if (!makerChecker.allowed) {
@@ -48,13 +48,20 @@ export async function POST(
         where: { id: closureReq.id },
         data: {
           status: 'APPROVED',
-          approvedBy: approverId || 'usr_mgr_01',
-          approvedByName: approverName || 'Branch Credit Committee Head',
-          approvedByRole: approverRole || 'Branch Manager / Approver',
+          approvedBy: approverId || actorUser.id,
+          approvedByName: approverName || actorUser.name,
+          approvedByRole: approverRole || actorUser.roleName,
           approvedAt: new Date(),
           approvalNotes: approvalNotes || 'Approved by Committee.',
         },
       });
+
+      if (closureReq.closureType === 'SETTLEMENT') {
+        await tx.settlementProposal.updateMany({
+          where: { closureRequestId: closureReq.id },
+          data: { status: 'APPROVED' },
+        });
+      }
 
       await tx.closureEvent.create({
         data: {

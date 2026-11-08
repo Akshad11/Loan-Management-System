@@ -121,7 +121,11 @@ export const ClosuresNocView: React.FC = () => {
       const res = await fetch('/api/closures', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...payload, closureType: 'SETTLEMENT' }),
+        body: JSON.stringify({
+          ...payload,
+          closureType: 'SETTLEMENT',
+          reason: payload.settlementReason,
+        }),
       });
 
       if (!res.ok) {
