@@ -32,10 +32,32 @@ export async function requireAuth(
   requiredPermission?: string | string[],
   options: RequireAuthOptions = {}
 ): Promise<{ actorUser: AuthContextUser } | NextResponse> {
-  let userId =
+  let rawAuth =
+    request.headers.get('authorization')?.replace('Bearer ', '') ||
     request.headers.get('x-user-id') ||
-    request.headers.get('X-User-Id') ||
-    request.headers.get('authorization')?.replace('Bearer ', '');
+    request.headers.get('X-User-Id');
+
+  let tokenEmail: string | undefined;
+  let tokenSub: string | undefined;
+
+  if (rawAuth && rawAuth.includes('.') && rawAuth.length > 40) {
+    try {
+      const parts = rawAuth.split('.');
+      if (parts.length === 3) {
+        const base64Url = parts[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
+        const json = Buffer.from(padded, 'base64').toString('utf-8');
+        const payload = JSON.parse(json);
+        tokenEmail = payload.email;
+        tokenSub = payload.sub;
+      }
+    } catch {
+      // not a JWT, treat as plain user id
+    }
+  }
+
+  const userId = tokenEmail || tokenSub || rawAuth;
 
   let dbUser: any;
   if (!userId) {
@@ -51,6 +73,8 @@ export async function requireAuth(
         where: {
           OR: [
             { id: userId },
+            ...(tokenEmail ? [{ email: { equals: tokenEmail, mode: 'insensitive' as const } }] : []),
+            ...(tokenSub ? [{ id: tokenSub }] : []),
             { email: { equals: userId, mode: 'insensitive' } },
             { username: { equals: userId, mode: 'insensitive' } },
             { employeeId: { equals: userId, mode: 'insensitive' } },

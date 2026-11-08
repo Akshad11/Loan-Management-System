@@ -7,7 +7,11 @@ import {
   Save,
   AlertTriangle,
   Upload,
+  UploadCloud,
   FileCheck,
+  FileText,
+  Trash2,
+  RefreshCw,
   Building,
   DollarSign,
   HelpCircle,
@@ -31,6 +35,184 @@ import { formatCurrencyINR } from '../../utils/formatters';
 
 const DEFAULT_EMPTY_RESPONSES: Record<string, any> = {};
 const DEFAULT_EMPTY_SIGNATURES: Record<string, SignatureCaptureData> = {};
+
+interface FormFileUploadControlProps {
+  field: FormFieldDefinition;
+  value: any;
+  hasError: boolean;
+  readOnly: boolean;
+  onFileSelect: (fileName: string) => void;
+  onFileRemove: () => void;
+}
+
+const FormFileUploadControl: React.FC<FormFileUploadControlProps> = ({
+  field,
+  value,
+  hasError,
+  readOnly,
+  onFileSelect,
+  onFileRemove,
+}) => {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const fileName = typeof value === 'string' ? value : value?.name || '';
+  const hasFile = Boolean(fileName && fileName.trim().length > 0);
+
+  const acceptedTypes = field.validation?.acceptedFileTypes?.join(',') || '.pdf,.jpg,.jpeg,.png';
+  const maxMb = field.validation?.maxFileSizeMB || 10;
+
+  const lowerName = fileName.toLowerCase();
+  const isPdf = lowerName.endsWith('.pdf');
+  const isImage = lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg') || lowerName.endsWith('.png');
+  const fileExt = isPdf ? 'PDF' : isImage ? 'IMAGE' : 'DOC';
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      onFileSelect(file.name);
+    }
+    e.target.value = '';
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (readOnly) return;
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      onFileSelect(file.name);
+    }
+  };
+
+  if (hasFile) {
+    return (
+      <div
+        className={`p-3.5 border rounded-2xl transition-all ${
+          hasError
+            ? 'border-rose-300 bg-rose-50/40'
+            : 'border-emerald-300 bg-emerald-50/30'
+        }`}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center space-x-3 min-w-0">
+            <div
+              className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                isPdf
+                  ? 'bg-rose-100 text-rose-700'
+                  : isImage
+                  ? 'bg-purple-100 text-purple-700'
+                  : 'bg-blue-100 text-blue-700'
+              }`}
+            >
+              {isPdf ? (
+                <FileText className="w-5 h-5" />
+              ) : (
+                <FileCheck className="w-5 h-5" />
+              )}
+            </div>
+
+            <div className="min-w-0">
+              <div className="flex items-center space-x-1.5 flex-wrap">
+                <span className="text-xs font-bold text-slate-900 truncate max-w-[180px] sm:max-w-xs block">
+                  {fileName}
+                </span>
+                <span
+                  className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0 ${
+                    isPdf
+                      ? 'bg-rose-100 text-rose-800'
+                      : isImage
+                      ? 'bg-purple-100 text-purple-800'
+                      : 'bg-blue-100 text-blue-800'
+                  }`}
+                >
+                  {fileExt}
+                </span>
+              </div>
+              <div className="flex items-center space-x-1 text-[11px] text-emerald-700 font-semibold mt-0.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span>Document attached & ready</span>
+              </div>
+            </div>
+          </div>
+
+          {!readOnly && (
+            <div className="flex items-center space-x-1 shrink-0">
+              <button
+                type="button"
+                onClick={() => inputRef.current?.click()}
+                className="px-2.5 py-1.5 text-[11px] font-bold text-slate-700 hover:text-blue-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition-all shadow-xs flex items-center space-x-1"
+                title="Change or replace this file"
+              >
+                <RefreshCw className="w-3 h-3 text-slate-500" />
+                <span>Replace</span>
+              </button>
+              <button
+                type="button"
+                onClick={onFileRemove}
+                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-100/50 rounded-xl transition-colors"
+                title="Remove uploaded document"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+        </div>
+
+        <input
+          ref={inputRef}
+          type="file"
+          accept={acceptedTypes}
+          disabled={readOnly}
+          onChange={handleInputChange}
+          className="hidden"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      onClick={() => {
+        if (!readOnly) inputRef.current?.click();
+      }}
+      onDragOver={(e) => {
+        e.preventDefault();
+        if (!readOnly) setIsDragging(true);
+      }}
+      onDragLeave={() => setIsDragging(false)}
+      onDrop={handleDrop}
+      className={`border-2 border-dashed rounded-2xl p-4 sm:p-5 text-center transition-all ${
+        readOnly
+          ? 'border-slate-200 bg-slate-50 opacity-60 cursor-not-allowed'
+          : isDragging
+          ? 'border-blue-600 bg-blue-50/70 ring-4 ring-blue-500/20 cursor-pointer'
+          : hasError
+          ? 'border-rose-300 bg-rose-50/20 hover:border-rose-400 cursor-pointer'
+          : 'border-slate-300 hover:border-blue-400 bg-slate-50/50 hover:bg-blue-50/20 cursor-pointer'
+      }`}
+    >
+      <div className="w-9 h-9 mx-auto mb-2 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">
+        <UploadCloud className="w-5 h-5" />
+      </div>
+      <div className="text-xs font-bold text-slate-800">
+        Click to upload or drag & drop
+      </div>
+      <p className="text-[11px] text-slate-500 mt-0.5">
+        Supports {acceptedTypes.replace(/\./g, ' ').toUpperCase()} (Max {maxMb}MB)
+      </p>
+
+      <input
+        ref={inputRef}
+        type="file"
+        accept={acceptedTypes}
+        disabled={readOnly}
+        onChange={handleInputChange}
+        className="hidden"
+      />
+    </div>
+  );
+};
 
 interface DynamicFormRendererProps {
   schema: FormSchemaDefinition;
@@ -216,7 +398,13 @@ export const DynamicFormRenderer: React.FC<DynamicFormRendererProps> = ({
     }
   };
 
-  const getWidthClass = (width: string) => {
+  const getWidthClass = (width: string, fieldType?: string) => {
+    // For file upload cards, allocate minimum 6 columns (50% on md screens) so they never cramp
+    if (fieldType === 'FILE' || fieldType === 'MULTI_FILE') {
+      if (width === 'FULL_WIDTH') return 'col-span-12';
+      return 'col-span-12 md:col-span-6';
+    }
+
     switch (width) {
       case '1_COL':
         return 'col-span-12 md:col-span-4';
@@ -327,7 +515,7 @@ export const DynamicFormRenderer: React.FC<DynamicFormRendererProps> = ({
               {section.fields.map((field) => {
                 if (!evaluateFieldVisibility(field, responses)) return null;
 
-                const widthClass = getWidthClass(field.width);
+                const widthClass = getWidthClass(field.width, field.type);
                 const hasError = !!errors[field.id];
                 const value = responses[field.id] ?? field.defaultValue ?? '';
 
@@ -470,21 +658,14 @@ export const DynamicFormRenderer: React.FC<DynamicFormRendererProps> = ({
                         {formatCurrencyINR(value || 0)}
                       </div>
                     ) : field.type === 'FILE' || field.type === 'MULTI_FILE' ? (
-                      <div className="p-3 border-2 border-dashed border-slate-300 hover:border-blue-400 rounded-xl bg-slate-50/50 flex items-center justify-between">
-                        <div className="flex items-center space-x-2 text-xs text-slate-600">
-                          <Upload className="w-4 h-4 text-blue-600" />
-                          <span>{value ? `File uploaded: ${String(value)}` : 'Select document file (PDF / Image)'}</span>
-                        </div>
-                        <input
-                          type="file"
-                          disabled={readOnly}
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) handleFieldChange(field.id, file.name);
-                          }}
-                          className="text-xs text-slate-500 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer"
-                        />
-                      </div>
+                      <FormFileUploadControl
+                        field={field}
+                        value={value}
+                        hasError={hasError}
+                        readOnly={readOnly}
+                        onFileSelect={(fName) => handleFieldChange(field.id, fName)}
+                        onFileRemove={() => handleFieldChange(field.id, '')}
+                      />
                     ) : (
                       <input
                         id={`field-${field.id}`}
@@ -525,6 +706,29 @@ export const DynamicFormRenderer: React.FC<DynamicFormRendererProps> = ({
         </button>
 
         <div className="flex items-center space-x-3">
+          {onAutoSaveDraft && !readOnly && (
+            <button
+              type="button"
+              onClick={async () => {
+                setIsAutoSaving(true);
+                setAutoSaveStatus('Saving draft...');
+                try {
+                  await onAutoSaveDraft(responses, signatures, currentPageIndex);
+                  setAutoSaveStatus('Draft saved');
+                } catch {
+                  setAutoSaveStatus('Save error');
+                } finally {
+                  setIsAutoSaving(false);
+                }
+              }}
+              disabled={isAutoSaving || readOnly}
+              className="px-4 py-2 bg-white hover:bg-slate-100 border border-slate-300 rounded-xl text-xs font-bold text-slate-700 transition-colors flex items-center space-x-1.5"
+            >
+              <Save className="w-3.5 h-3.5 text-slate-500" />
+              <span>{isAutoSaving ? 'Saving...' : 'Save Draft'}</span>
+            </button>
+          )}
+
           {!isLastPage ? (
             <button
               type="button"

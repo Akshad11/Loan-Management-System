@@ -1,16 +1,18 @@
 import React from 'react';
-import { User, Phone, CreditCard, Briefcase, IndianRupee, ShieldCheck, AlertCircle } from 'lucide-react';
+import { User, Phone, CreditCard, Briefcase, IndianRupee, ShieldCheck, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { LoanApplicationRecord } from '../../types/applicationTypes';
 import { formatCurrencyINR } from '../../utils/formatters';
 
 interface ApplicantSummaryCardProps {
   application: LoanApplicationRecord;
   onViewCustomerProfile?: (customerId: string) => void;
+  onApproveKyc?: (customerId: string) => void;
 }
 
 export const ApplicantSummaryCard: React.FC<ApplicantSummaryCardProps> = ({
   application,
   onViewCustomerProfile,
+  onApproveKyc,
 }) => {
   const isKycVerified = application.customerKycStatus === 'VERIFIED';
 
@@ -48,7 +50,7 @@ export const ApplicantSummaryCard: React.FC<ApplicantSummaryCardProps> = ({
           </div>
         </div>
 
-        <div className="text-right">
+        <div className="text-right flex flex-col items-end">
           <span
             className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${
               isKycVerified
@@ -63,6 +65,17 @@ export const ApplicantSummaryCard: React.FC<ApplicantSummaryCardProps> = ({
             )}
             KYC {application.customerKycStatus}
           </span>
+          {!isKycVerified && onApproveKyc && (
+            <button
+              type="button"
+              onClick={() => onApproveKyc(application.customerId)}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded px-2.5 py-1 mt-1.5 transition-colors shadow-sm"
+              title="Verify and Approve Customer KYC for Loan Appraisal"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+              Approve KYC Now
+            </button>
+          )}
           {onViewCustomerProfile && (
             <button
               onClick={() => onViewCustomerProfile(application.customerId)}

@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { NAV_ITEMS, NAV_GROUPS } from './navConfig';
 import { useAuth } from '../../services/authContext';
+import { useMockLMSStore } from '../../services/mockService';
 import { cn } from '../../utils/formatters';
 
 const ICON_MAP: Record<string, LucideIcon> = {
@@ -69,6 +70,36 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onToggleCollapse,
 }) => {
   const { hasPermission } = useAuth();
+  const store = useMockLMSStore();
+
+  const getDynamicBadgeCount = (itemId: string): number => {
+    switch (itemId) {
+      case 'credit_assessment':
+        return store.creditAssessments.filter(
+          (ca) => ca.status === 'PENDING' || ca.status === 'ASSIGNED'
+        ).length;
+      case 'approvals':
+        return store.approvals.filter(
+          (a) => a.status === 'PENDING' || a.status === 'IN_REVIEW'
+        ).length;
+      case 'kyc':
+        return store.kycRecords.filter(
+          (k) => k.status === 'PENDING_REVIEW' || k.status === 'ACTION_REQUIRED'
+        ).length;
+      case 'disbursements':
+        return store.disbursements.filter(
+          (d) => d.status === 'PENDING_APPROVAL'
+        ).length;
+      case 'collections':
+        return store.loanAccounts.filter((l) => (l.dpd || 0) > 0).length;
+      case 'recovery':
+        return store.recoveryCases.filter(
+          (r) => r.status === 'OPEN' || r.status === 'ASSIGNED' || r.status === 'IN_PROGRESS'
+        ).length;
+      default:
+        return 0;
+    }
+  };
 
   // Filter items based on active user permissions
   const permittedItems = NAV_ITEMS.filter((item) => hasPermission(item.requiredPermission));
@@ -127,16 +158,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         <span className="flex-1 truncate tracking-tight">{item.label}</span>
                       )}
 
-                      {!isCollapsed && item.badgeCount && item.badgeCount > 0 && (
-                        <span
-                          className={cn(
-                            'text-[10px] font-bold px-1.5 py-0.5 rounded-full tabular-nums',
-                            isActive ? 'bg-slate-800 text-white' : 'bg-slate-200 text-slate-700'
-                          )}
-                        >
-                          {item.badgeCount}
-                        </span>
-                      )}
+                      {(() => {
+                        const dynamicCount = getDynamicBadgeCount(item.id);
+                        if (!isCollapsed && dynamicCount > 0) {
+                          return (
+                            <span
+                              className={cn(
+                                'text-[10px] font-bold px-1.5 py-0.5 rounded-full tabular-nums',
+                                isActive ? 'bg-slate-800 text-white' : 'bg-slate-200 text-slate-700'
+                              )}
+                            >
+                              {dynamicCount}
+                            </span>
+                          );
+                        }
+                        return null;
+                      })()}
 
                       {/* Tooltip for collapsed mode */}
                       {isCollapsed && (

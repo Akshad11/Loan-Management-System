@@ -857,6 +857,26 @@ export const INITIAL_USERS: LMSUser[] = [
     lastLogin: '2026-03-01 10:00 AM',
     failedLoginAttempts: 0,
   },
+  {
+    id: 'usr_002',
+    employeeId: 'EMP-001002',
+    firstName: 'Rajesh',
+    lastName: 'Sharma',
+    name: 'Rajesh Sharma',
+    username: 'checker',
+    email: 'checker@fintechlms.in',
+    mobile: '9820144521',
+    roleId: 'role_approver',
+    roleName: 'Branch Credit Manager / Approver (Level 1)',
+    branchId: 'br_panjim',
+    branchName: 'Panaji Head Office Branch',
+    status: 'ACTIVE',
+    department: 'Operations & Disbursement Review',
+    createdDate: '2025-01-01',
+    updatedDate: '2026-02-15',
+    lastLogin: '2026-03-01 10:00 AM',
+    failedLoginAttempts: 0,
+  },
 ];
 
 // ============================================================================

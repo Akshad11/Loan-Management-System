@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Upload, FileText, AlertCircle } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { UploadCloud, FileText, CheckCircle2, RefreshCw } from 'lucide-react';
 import { Modal } from '../shared/Modal';
 
 interface ApplicationDocumentUploadModalProps {
@@ -27,12 +27,14 @@ export const ApplicationDocumentUploadModal: React.FC<ApplicationDocumentUploadM
   initialDocumentTitle = 'Bank Operating Account Statement',
   isMandatory = true,
 }) => {
-  const [documentType, setDocumentType] = useState(initialDocumentType);
-  const [documentTitle, setDocumentTitle] = useState(initialDocumentTitle);
+  const [documentType] = useState(initialDocumentType);
+  const [documentTitle] = useState(initialDocumentTitle);
   const [fileName, setFileName] = useState('');
   const [fileFormat, setFileFormat] = useState<'PDF' | 'JPG' | 'PNG' | 'DOCX'>('PDF');
   const [fileSizeKb, setFileSizeKb] = useState<number>(1450);
   const [notes, setNotes] = useState('');
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Auto generate file name suggestion if empty
   React.useEffect(() => {
@@ -41,6 +43,16 @@ export const ApplicationDocumentUploadModal: React.FC<ApplicationDocumentUploadM
       setFileName(`${sanitized}_Verified.${fileFormat.toLowerCase()}`);
     }
   }, [documentTitle, fileFormat, fileName]);
+
+  const handleFilePicked = (file: File) => {
+    setFileName(file.name);
+    setFileSizeKb(Math.round(file.size / 1024) || 250);
+    const lower = file.name.toLowerCase();
+    if (lower.endsWith('.pdf')) setFileFormat('PDF');
+    else if (lower.endsWith('.png')) setFileFormat('PNG');
+    else if (lower.endsWith('.docx')) setFileFormat('DOCX');
+    else if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) setFileFormat('JPG');
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,28 +82,96 @@ export const ApplicationDocumentUploadModal: React.FC<ApplicationDocumentUploadM
           <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
             Document Requirement
           </label>
-          <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-md text-xs font-medium text-slate-900">
-            {documentTitle} ({documentType})
+          <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 flex items-center justify-between">
+            <span>{documentTitle}</span>
+            <span className="font-mono text-[10px] bg-slate-200 px-2 py-0.5 rounded text-slate-700 font-bold">
+              {documentType}
+            </span>
           </div>
         </div>
 
-        {/* Drag & drop simulated file input */}
-        <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:border-slate-400 bg-slate-50/50">
-          <Upload className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-          <div className="text-xs font-medium text-slate-900 mb-1">
-            Simulated Document Attachment
-          </div>
-          <p className="text-[11px] text-slate-500 mb-3">
-            Supports PDF, JPG, PNG, DOCX up to 15MB
-          </p>
+        {/* Drag & drop file input */}
+        <div
+          onClick={() => fileInputRef.current?.click()}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setIsDragging(true);
+          }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setIsDragging(false);
+            if (e.dataTransfer.files?.[0]) {
+              handleFilePicked(e.dataTransfer.files[0]);
+            }
+          }}
+          className={`border-2 border-dashed rounded-2xl p-5 text-center cursor-pointer transition-all ${
+            isDragging
+              ? 'border-blue-600 bg-blue-50/80 ring-4 ring-blue-500/20'
+              : fileName
+              ? 'border-emerald-300 bg-emerald-50/30 hover:border-emerald-400'
+              : 'border-slate-300 hover:border-blue-500 bg-slate-50/50 hover:bg-blue-50/30'
+          }`}
+        >
+          {fileName ? (
+            <div className="flex items-center justify-between gap-3 text-left">
+              <div className="flex items-center space-x-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs font-bold text-slate-900 truncate max-w-[200px] block">
+                      {fileName}
+                    </span>
+                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 uppercase">
+                      {fileFormat}
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-emerald-700 font-medium flex items-center gap-1 mt-0.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>File selected ({fileSizeKb} KB)</span>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  fileInputRef.current?.click();
+                }}
+                className="px-2.5 py-1 text-xs font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl shadow-xs flex items-center space-x-1 shrink-0"
+              >
+                <RefreshCw className="w-3 h-3 text-slate-500" />
+                <span>Change</span>
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="w-10 h-10 mx-auto mb-2 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">
+                <UploadCloud className="w-5 h-5" />
+              </div>
+              <div className="text-xs font-bold text-slate-900 mb-0.5">
+                Click to browse or drag & drop file
+              </div>
+              <p className="text-[11px] text-slate-500">
+                Supports PDF, JPG, PNG, DOCX up to 15MB
+              </p>
+            </>
+          )}
 
           <input
-            type="text"
-            placeholder="File name (e.g. Salary_Slips_Q2_Signed.pdf)"
-            value={fileName}
-            onChange={(e) => setFileName(e.target.value)}
-            className="w-full max-w-sm mx-auto px-3 py-1.5 text-xs border border-slate-300 rounded bg-white font-mono"
-            required
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.jpg,.jpeg,.png,.docx"
+            onChange={(e) => {
+              if (e.target.files?.[0]) {
+                handleFilePicked(e.target.files[0]);
+              }
+              e.target.value = '';
+            }}
+            className="hidden"
           />
         </div>
 
@@ -103,7 +183,7 @@ export const ApplicationDocumentUploadModal: React.FC<ApplicationDocumentUploadM
             <select
               value={fileFormat}
               onChange={(e) => setFileFormat(e.target.value as any)}
-              className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md bg-white font-medium"
+              className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl bg-white font-medium"
             >
               <option value="PDF">PDF Document</option>
               <option value="JPG">JPG Image</option>
@@ -120,7 +200,7 @@ export const ApplicationDocumentUploadModal: React.FC<ApplicationDocumentUploadM
               type="number"
               value={fileSizeKb}
               onChange={(e) => setFileSizeKb(Number(e.target.value))}
-              className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md bg-white font-mono"
+              className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl bg-white font-mono"
             />
           </div>
         </div>
@@ -134,7 +214,7 @@ export const ApplicationDocumentUploadModal: React.FC<ApplicationDocumentUploadM
             placeholder="e.g. Scanned copy with self-attestation and employer stamp..."
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md"
+            className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl"
           />
         </div>
 
@@ -142,14 +222,14 @@ export const ApplicationDocumentUploadModal: React.FC<ApplicationDocumentUploadM
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-xs text-slate-700 hover:bg-slate-100 rounded-md border border-slate-300"
+            className="px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 rounded-xl border border-slate-300"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={!fileName.trim()}
-            className="px-5 py-2 text-xs font-medium text-white bg-slate-900 hover:bg-slate-800 disabled:opacity-50 rounded-md shadow-sm"
+            className="px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-xl shadow-md shadow-blue-500/20"
           >
             Attach Document
           </button>

@@ -29,6 +29,39 @@ export interface AddressInfo {
   pinCode: string;
 }
 
+export interface CreateCustomerInput {
+  firstName: string;
+  middleName?: string;
+  lastName: string;
+  dateOfBirth: string;
+  gender: Gender;
+  maritalStatus?: MaritalStatus;
+  nationality?: string;
+  customerType: CustomerType;
+  mobile: string;
+  alternateMobile?: string;
+  email?: string;
+  preferredContact?: 'MOBILE' | 'EMAIL';
+  currentAddress: AddressInfo;
+  permanentAddress: AddressInfo;
+  sameAsCurrentAddress: boolean;
+  employmentType: EmploymentType;
+  employerName?: string;
+  occupation?: string;
+  monthlyIncome: number;
+  employmentSince?: string;
+  bankName?: string;
+  accountNumber?: string;
+  accountNumberMasked?: string;
+  ifscCode?: string;
+  branchId: string;
+  pan?: string;
+  panMasked?: string;
+  aadhaar?: string;
+  aadhaarMasked?: string;
+  cibilScore?: number;
+}
+
 export interface CustomerRecord {
   id: string;
   customerNumber: string; // e.g. "CUS-000184"

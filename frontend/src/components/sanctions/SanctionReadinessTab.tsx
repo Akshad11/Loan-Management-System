@@ -21,6 +21,7 @@ interface SanctionReadinessTabProps {
   readinessResult: PreDisbursementReadinessResult;
   onNavigateModule?: (moduleName: string) => void;
   onRefreshReadiness?: () => void;
+  onOpenConfirmModal?: () => void;
 }
 
 export const SanctionReadinessTab: React.FC<SanctionReadinessTabProps> = ({
@@ -28,12 +29,40 @@ export const SanctionReadinessTab: React.FC<SanctionReadinessTabProps> = ({
   readinessResult,
   onNavigateModule,
   onRefreshReadiness,
+  onOpenConfirmModal,
 }) => {
   const { overallStatus, isDisbursementReady, blockerReasons, checks, verifiedAt } = readinessResult;
 
   const passedCount = checks.filter((c) => c.status === 'PASS').length;
   const pendingCount = checks.filter((c) => c.status === 'PENDING').length;
   const blockedCount = checks.filter((c) => c.status === 'BLOCKED').length;
+
+  const handleActionClick = (target?: string) => {
+    if (target === 'sanction' || target === 'sanctions') {
+      if (onOpenConfirmModal) {
+        onOpenConfirmModal();
+        return;
+      }
+    }
+    if (!onNavigateModule) return;
+    const targetMap: Record<string, string> = {
+      approval: 'approvals',
+      approvals: 'approvals',
+      sanction: 'sanctions',
+      sanctions: 'sanctions',
+      customer: 'customers',
+      customers: 'customers',
+      kyc: 'kyc',
+      documents: 'documents',
+      application: 'applications',
+      applications: 'applications',
+      conditions: 'sanctions',
+      banking: 'customers',
+      disbursement: 'disbursements',
+      disbursements: 'disbursements',
+    };
+    onNavigateModule(targetMap[target || ''] || target || 'applications');
+  };
 
   const getCategoryIcon = (category: string) => {
     switch (category) {
@@ -118,6 +147,16 @@ export const SanctionReadinessTab: React.FC<SanctionReadinessTabProps> = ({
                 {blockedCount > 0 && `• ${blockedCount} Blocked`}
               </div>
             </div>
+            {sanction.status !== 'SANCTIONED' && onOpenConfirmModal && (
+              <button
+                type="button"
+                onClick={onOpenConfirmModal}
+                className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-md shadow-sm transition-colors inline-flex items-center"
+              >
+                <CheckCircle2 className="w-4 h-4 mr-1.5" />
+                Confirm Sanction
+              </button>
+            )}
           </div>
         </div>
 
@@ -174,9 +213,9 @@ export const SanctionReadinessTab: React.FC<SanctionReadinessTabProps> = ({
                 <div className="flex items-center gap-3 self-end md:self-center shrink-0">
                   <ReadinessBadge status={chk.status} size="md" />
 
-                  {chk.actionLabel && onNavigateModule && (
+                  {chk.actionLabel && (
                     <button
-                      onClick={() => onNavigateModule(chk.actionTarget || 'applications')}
+                      onClick={() => handleActionClick(chk.actionTarget)}
                       className="px-2.5 py-1 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded transition-colors inline-flex items-center"
                     >
                       {chk.actionLabel}

@@ -173,19 +173,31 @@ export const KycVerificationWorkbench: React.FC<KycVerificationWorkbenchProps> =
                 </tr>
                 <tr>
                   <td className="p-2 font-semibold text-slate-600">Date of Birth / Incorp</td>
-                  <td className="p-2 text-slate-900">{customer.dateOfBirth || '1984-06-15'}</td>
-                  <td className="p-2 text-slate-900">{customer.dateOfBirth || '1984-06-15'} (UIDAI Verified)</td>
+                  <td className="p-2 text-slate-900">{customer.dateOfBirth || 'Not provided'}</td>
+                  <td className="p-2 text-slate-900">
+                    {customer.dateOfBirth ? `${customer.dateOfBirth} (UIDAI Verified)` : 'Pending Verification'}
+                  </td>
                   <td className="p-2">
-                    <span className="inline-flex items-center gap-1 text-emerald-700 font-semibold">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> Exact Match
-                    </span>
+                    {customer.dateOfBirth ? (
+                      <span className="inline-flex items-center gap-1 text-emerald-700 font-semibold">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Exact Match
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-amber-700 font-semibold">
+                        <AlertTriangle className="w-3.5 h-3.5" /> Pending
+                      </span>
+                    )}
                   </td>
                 </tr>
                 <tr>
                   <td className="p-2 font-semibold text-slate-600">PAN Record</td>
-                  <td className="p-2 font-mono text-slate-900">{customer.panMasked || 'ABCDE••••F'}</td>
+                  <td className="p-2 font-mono text-slate-900">
+                    {customer.panMasked || (kyc?.panRecord?.idNumberMasked && kyc.panRecord.idNumberMasked !== 'NOT_PROVIDED' ? kyc.panRecord.idNumberMasked : 'Not provided')}
+                  </td>
                   <td className="p-2 text-slate-900 flex items-center justify-between">
-                    <span className="font-mono">Active & Aadhaar Seeded</span>
+                    <span className="font-mono">
+                      {customer.panMasked ? 'Active & Seeded' : 'Not Provided'}
+                    </span>
                     <button
                       type="button"
                       onClick={handleSimulatePan}
@@ -210,9 +222,13 @@ export const KycVerificationWorkbench: React.FC<KycVerificationWorkbenchProps> =
                 </tr>
                 <tr>
                   <td className="p-2 font-semibold text-slate-600">Aadhaar (UIDAI e-KYC)</td>
-                  <td className="p-2 font-mono text-slate-900">{customer.aadhaarMasked || '•••• •••• 1001'}</td>
+                  <td className="p-2 font-mono text-slate-900">
+                    {customer.aadhaarMasked || (kyc?.aadhaarRecord?.idNumberMasked && kyc.aadhaarRecord.idNumberMasked !== 'NOT_PROVIDED' ? kyc.aadhaarRecord.idNumberMasked : 'Not provided')}
+                  </td>
                   <td className="p-2 text-slate-900 flex items-center justify-between">
-                    <span>Paperless XML Token Authentic</span>
+                    <span>
+                      {customer.aadhaarMasked ? 'Paperless XML Token Authentic' : 'Not Provided'}
+                    </span>
                     <button
                       type="button"
                       onClick={handleSimulateAadhaar}
@@ -237,8 +253,10 @@ export const KycVerificationWorkbench: React.FC<KycVerificationWorkbenchProps> =
                 </tr>
                 <tr>
                   <td className="p-2 font-semibold text-slate-600">Current Address PIN</td>
-                  <td className="p-2 text-slate-900">{customer.currentAddress?.pinCode || '403001'}</td>
-                  <td className="p-2 text-slate-900">{customer.currentAddress?.pinCode || '403001'} (Geo-Loc matches)</td>
+                  <td className="p-2 text-slate-900">{customer.currentAddress?.pinCode || 'Not provided'}</td>
+                  <td className="p-2 text-slate-900">
+                    {customer.currentAddress?.pinCode ? `${customer.currentAddress.pinCode} (Geo-Loc matches)` : 'Pending Address Entry'}
+                  </td>
                   <td className="p-2">
                     <span className="inline-flex items-center gap-1 text-emerald-700 font-semibold">
                       <CheckCircle2 className="w-3.5 h-3.5" /> Area Serviceable

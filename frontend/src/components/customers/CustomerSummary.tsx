@@ -95,7 +95,7 @@ export const CustomerSummary: React.FC<CustomerSummaryProps> = ({ customer }) =>
           <span>Assigned Officer</span>
         </div>
         <div className="font-medium text-slate-900 truncate">
-          {customer.assignedOfficer || 'Siddharth Rao'}
+          {customer.assignedOfficer || 'Unassigned'}
         </div>
         <div className="text-[10px] text-slate-500 mt-0.5 truncate">{customer.branchName}</div>
       </div>

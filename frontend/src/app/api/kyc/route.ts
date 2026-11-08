@@ -79,6 +79,12 @@ export async function POST(request: Request) {
       },
     });
 
+    // Synchronize loan applications for this customer in database
+    await prisma.loanApplication.updateMany({
+      where: { customerId: body.customerId },
+      data: { customerKycStatus: kyc.status },
+    });
+
     await writeAuditLog({
       actorUser,
       entityType: 'CUSTOMER',
@@ -98,40 +104,87 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    const authResult = await requireAuth(request, ['verify_kyc', 'manage_customers']);
+    const authResult = await requireAuth(request, ['verify_kyc', 'manage_customers', 'view_customers', 'view_applications']);
     if (authResult instanceof NextResponse) return authResult;
     const { actorUser } = authResult;
 
     const body = await request.json();
     const { id, ...data } = body;
-    if (!id) return NextResponse.json({ error: 'KYC Record ID required' }, { status: 400 });
+    const targetCustomerId = data.customerId || body.customerId;
 
-    const kyc = await prisma.kycRecord.update({
-      where: { id },
-      data: {
-        status: data.status,
-        kycLevel: data.kycLevel,
-        riskCategory: data.riskCategory,
-        panRecord: data.panRecord,
-        aadhaarRecord: data.aadhaarRecord,
-        secondaryIdRecord: data.secondaryIdRecord,
-        videoKycRecord: data.videoKycRecord,
-        verifiedAt: data.status === 'VERIFIED' ? new Date() : undefined,
-        verifiedBy: data.status === 'VERIFIED' ? actorUser.name : undefined,
+    if (!id && !targetCustomerId) {
+      return NextResponse.json({ error: 'KYC Record ID or Customer ID required' }, { status: 400 });
+    }
+
+    // Look up existing KYC record by id or customerId
+    let existingKyc = await prisma.kycRecord.findFirst({
+      where: {
+        OR: [
+          ...(id ? [{ id }] : []),
+          ...(targetCustomerId ? [{ customerId: targetCustomerId }] : []),
+        ],
       },
     });
 
-    await writeAuditLog({
-      actorUser,
-      entityType: 'CUSTOMER',
-      entityId: kyc.customerId,
-      entityName: kyc.customerName || 'Customer KYC',
-      action: 'KYC_UPDATED',
-      details: `KYC record updated to status: ${data.status}`,
-      request,
-    });
+    let kyc;
+    if (existingKyc) {
+      kyc = await prisma.kycRecord.update({
+        where: { id: existingKyc.id },
+        data: {
+          status: data.status || existingKyc.status,
+          kycLevel: data.kycLevel || existingKyc.kycLevel,
+          riskCategory: data.riskCategory || existingKyc.riskCategory,
+          panRecord: data.panRecord !== undefined ? data.panRecord : existingKyc.panRecord,
+          aadhaarRecord: data.aadhaarRecord !== undefined ? data.aadhaarRecord : existingKyc.aadhaarRecord,
+          secondaryIdRecord: data.secondaryIdRecord !== undefined ? data.secondaryIdRecord : existingKyc.secondaryIdRecord,
+          videoKycRecord: data.videoKycRecord !== undefined ? data.videoKycRecord : existingKyc.videoKycRecord,
+          verifiedAt: data.status === 'VERIFIED' ? new Date() : existingKyc.verifiedAt,
+          verifiedBy: data.status === 'VERIFIED' ? (data.verifiedBy || actorUser.name) : existingKyc.verifiedBy,
+        },
+      });
+    } else if (targetCustomerId) {
+      const customer = await prisma.customer.findUnique({ where: { id: targetCustomerId } });
+      kyc = await prisma.kycRecord.create({
+        data: {
+          id: id || undefined,
+          customerId: targetCustomerId,
+          customerNumber: data.customerNumber || customer?.customerNumber || '',
+          customerName: data.customerName || customer?.name || '',
+          customerType: data.customerType || customer?.customerType || 'INDIVIDUAL',
+          status: data.status || 'VERIFIED',
+          kycLevel: data.kycLevel || 'TIER_2_STANDARD',
+          riskCategory: data.riskCategory || 'LOW',
+          panRecord: data.panRecord || null,
+          aadhaarRecord: data.aadhaarRecord || null,
+          secondaryIdRecord: data.secondaryIdRecord || null,
+          videoKycRecord: data.videoKycRecord || null,
+          verifiedAt: data.status === 'VERIFIED' ? new Date() : null,
+          verifiedBy: data.status === 'VERIFIED' ? (data.verifiedBy || actorUser.name) : null,
+        },
+      });
+    }
 
-    return NextResponse.json(kyc);
+    if (kyc) {
+      // Synchronize loan applications for this customer in database
+      await prisma.loanApplication.updateMany({
+        where: { customerId: kyc.customerId },
+        data: { customerKycStatus: kyc.status },
+      });
+
+      await writeAuditLog({
+        actorUser,
+        entityType: 'CUSTOMER',
+        entityId: kyc.customerId,
+        entityName: kyc.customerName || 'Customer KYC',
+        action: data.status === 'VERIFIED' ? 'KYC_VERIFIED' : 'KYC_UPDATED',
+        details: `KYC record updated to status: ${kyc.status}`,
+        request,
+      });
+
+      return NextResponse.json(kyc);
+    }
+
+    return NextResponse.json({ error: 'Failed to update or create KYC record' }, { status: 400 });
   } catch (error: any) {
     console.error('API /kyc PUT error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });

@@ -261,8 +261,34 @@ export async function POST(request: Request) {
       }
     }
 
-    const count = await prisma.loanAccount.count();
-    const accountNumber = body.accountNumber || `LN-2026-${String(count + 1).padStart(6, '0')}`;
+    let accountNumber = body.accountNumber;
+    if (accountNumber) {
+      const existingLoan = await prisma.loanAccount.findUnique({
+        where: { accountNumber },
+      });
+      if (existingLoan && existingLoan.id !== body.id) {
+        accountNumber = null;
+      }
+    }
+
+    if (!accountNumber) {
+      const allLoans = await prisma.loanAccount.findMany({ select: { accountNumber: true } });
+      let maxLoanSeq = 1000;
+      for (const l of allLoans) {
+        const match = l.accountNumber?.match(/(\d+)(?!.*\d)/);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (!isNaN(num) && num > maxLoanSeq) maxLoanSeq = num;
+        }
+      }
+      let candidateSeq = maxLoanSeq + 1;
+      accountNumber = `LN-2026-${String(candidateSeq).padStart(6, '0')}`;
+      while (allLoans.some((l) => l.accountNumber === accountNumber)) {
+        candidateSeq++;
+        accountNumber = `LN-2026-${String(candidateSeq).padStart(6, '0')}`;
+      }
+    }
+
     const principal = Number(body.disbursedPrincipal || body.sanctionedAmount || body.originalPrincipal || 0);
     const rate = Number(body.interestRate || 14.0);
     const tenure = Number(body.tenureMonths || body.totalTenureMonths || 36);
@@ -292,8 +318,28 @@ export async function POST(request: Request) {
     });
 
     if (!customer) {
-      const customerCount = await prisma.customer.count();
-      const customerNumber = body.customerNumber || `CUS-${String(customerCount + 1).padStart(6, '0')}`;
+      let customerNumber = body.customerNumber;
+      if (customerNumber && (await prisma.customer.findUnique({ where: { customerNumber } }))) {
+        customerNumber = null;
+      }
+      if (!customerNumber) {
+        const existingCustomers = await prisma.customer.findMany({ select: { customerNumber: true } });
+        let maxCustSeq = 100;
+        for (const c of existingCustomers) {
+          const match = c.customerNumber?.match(/(\d+)(?!.*\d)/);
+          if (match) {
+            const num = parseInt(match[1], 10);
+            if (!isNaN(num) && num > maxCustSeq) maxCustSeq = num;
+          }
+        }
+        let candidateCustSeq = maxCustSeq + 1;
+        customerNumber = `CUS-000${candidateCustSeq}`;
+        while (existingCustomers.some((c) => c.customerNumber === customerNumber)) {
+          candidateCustSeq++;
+          customerNumber = `CUS-000${candidateCustSeq}`;
+        }
+      }
+
       const name = body.customerName || 'Borrower Customer';
       const parts = name.trim().split(' ');
       const firstName = parts[0] || 'Borrower';

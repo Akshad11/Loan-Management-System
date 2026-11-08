@@ -14,13 +14,21 @@ export async function GET(
     if (authResult instanceof NextResponse) return authResult;
 
     const { id } = await params;
+    const app = await prisma.loanApplication.findFirst({
+      where: {
+        OR: [{ id }, { applicationNumber: id }],
+      },
+      select: { id: true },
+    });
+    const effectiveId = app?.id || id;
+
     const decisions = await prisma.creditDecisionRecord.findMany({
-      where: { applicationId: id },
+      where: { applicationId: effectiveId },
       orderBy: { createdAt: 'desc' },
     });
 
     const returnHistory = await prisma.applicationReturnHistory.findMany({
-      where: { applicationId: id },
+      where: { applicationId: effectiveId },
       orderBy: { timestamp: 'desc' },
     });
 

@@ -146,7 +146,9 @@ export const RepaymentSetupTab: React.FC<RepaymentSetupTabProps> = ({
           <div className="space-y-3 text-xs">
             <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
               <span className="text-slate-500">Bank Name:</span>
-              <span className="font-semibold text-slate-900">{settings.bankName || 'HDFC Bank Ltd'}</span>
+              <span className={`font-semibold ${settings.bankName && settings.bankName !== 'Not configured' ? 'text-slate-900' : 'text-slate-400 italic'}`}>
+                {settings.bankName && settings.bankName !== 'Not configured' ? settings.bankName : 'Not configured'}
+              </span>
             </div>
             <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
               <span className="text-slate-500">Account Holder Name:</span>
@@ -154,11 +156,15 @@ export const RepaymentSetupTab: React.FC<RepaymentSetupTabProps> = ({
             </div>
             <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
               <span className="text-slate-500">Account Number:</span>
-              <span className="font-mono font-bold text-slate-900">{settings.bankAccountMasked || '•••• •••• •••• 1284'}</span>
+              <span className={`font-mono font-bold ${settings.bankAccountMasked && settings.bankAccountMasked !== 'Not configured' ? 'text-slate-900' : 'text-slate-400 italic'}`}>
+                {settings.bankAccountMasked && settings.bankAccountMasked !== 'Not configured' ? settings.bankAccountMasked : 'Not configured'}
+              </span>
             </div>
             <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
               <span className="text-slate-500">IFSC Code:</span>
-              <span className="font-mono text-slate-800">{settings.ifscCode || 'HDFC0000120'}</span>
+              <span className={`font-mono ${settings.ifscCode && settings.ifscCode !== 'Not configured' ? 'text-slate-800' : 'text-slate-400 italic'}`}>
+                {settings.ifscCode && settings.ifscCode !== 'Not configured' ? settings.ifscCode : 'Not configured'}
+              </span>
             </div>
             <div className="flex items-center justify-between py-1.5">
               <span className="text-slate-500">Last Configuration Update:</span>

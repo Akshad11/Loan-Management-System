@@ -103,6 +103,8 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
   const [bankName, setBankName] = useState(initialData?.bankName || '');
   const [accountNumber, setAccountNumber] = useState(initialData?.accountNumber || '');
   const [ifscCode, setIfscCode] = useState(initialData?.ifscCode || '');
+  const [pan, setPan] = useState('');
+  const [aadhaar, setAadhaar] = useState('');
   const [branchId, setBranchId] = useState(
     initialData?.branchId || (branches.length > 0 ? branches[0].id : 'br_panjim')
   );
@@ -226,8 +228,19 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
       monthlyIncome: parseFloat(monthlyIncome.replace(/[^0-9.]/g, '')) || 0,
       employmentSince: employmentSince || undefined,
       bankName: bankName.trim() || undefined,
-      accountNumber: accountNumber.trim() || undefined,
+      accountNumber: accountNumber.trim() || initialData?.accountNumber || undefined,
+      accountNumberMasked: accountNumber.trim()
+        ? (accountNumber.trim().length > 4 ? `•••• •••• ${accountNumber.trim().slice(-4)}` : accountNumber.trim())
+        : (initialData?.accountNumberMasked || undefined),
       ifscCode: ifscCode.trim().toUpperCase() || undefined,
+      pan: pan.trim().toUpperCase() || undefined,
+      panMasked: pan.trim()
+        ? (pan.trim().length === 10 ? `${pan.trim().slice(0, 5)}••••${pan.trim().slice(-1)}` : pan.trim().toUpperCase())
+        : (initialData?.panMasked || undefined),
+      aadhaar: aadhaar.replace(/\D/g, '') || undefined,
+      aadhaarMasked: aadhaar.replace(/\D/g, '').length >= 4
+        ? `•••• •••• ${aadhaar.replace(/\D/g, '').slice(-4)}`
+        : (initialData?.aadhaarMasked || undefined),
       branchId,
     };
 
@@ -767,7 +780,7 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
         <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
           <Building2 className="w-4 h-4 text-slate-700" />
           <h3 className="font-semibold text-xs text-slate-900 tracking-wide uppercase">
-            Section 5 — Banking Information (Optional)
+            Section 5 — Banking & Masked Identity Credentials (Optional)
           </h3>
         </div>
 
@@ -778,18 +791,25 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
               type="text"
               value={bankName}
               onChange={(e) => setBankName(e.target.value)}
-              placeholder="e.g. HDFC Bank Ltd"
+              placeholder="e.g. State Bank of India"
               className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-slate-800"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">Bank Account Number</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-medium text-slate-700">Bank Account Number</label>
+              {initialData?.accountNumberMasked && !accountNumber && (
+                <span className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded font-mono">
+                  Saved: {initialData.accountNumberMasked}
+                </span>
+              )}
+            </div>
             <input
               type="text"
               value={accountNumber}
               onChange={(e) => setAccountNumber(e.target.value)}
-              placeholder="Enter customer A/C number"
+              placeholder={initialData?.accountNumberMasked ? `Saved: ${initialData.accountNumberMasked}` : "Enter customer A/C number"}
               className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded text-xs font-mono text-slate-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-slate-800"
             />
           </div>
@@ -804,10 +824,48 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
                 if (errors.ifscCode) setErrors({ ...errors, ifscCode: '' });
               }}
               maxLength={11}
-              placeholder="HDFC0000084"
+              placeholder="SBIN0001234"
               className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded text-xs font-mono uppercase text-slate-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-slate-800"
             />
             {errors.ifscCode && <p className="text-[11px] text-rose-600 mt-1">{errors.ifscCode}</p>}
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-medium text-slate-700">PAN Number (Permanent Account Number)</label>
+              {initialData?.panMasked && !pan && (
+                <span className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded font-mono">
+                  Saved: {initialData.panMasked}
+                </span>
+              )}
+            </div>
+            <input
+              type="text"
+              value={pan}
+              onChange={(e) => setPan(e.target.value.toUpperCase())}
+              maxLength={10}
+              placeholder={initialData?.panMasked ? `Saved: ${initialData.panMasked}` : "e.g. ABCDE1234F"}
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded text-xs font-mono uppercase text-slate-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-slate-800"
+            />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-medium text-slate-700">Aadhaar Number (12 Digits)</label>
+              {initialData?.aadhaarMasked && !aadhaar && (
+                <span className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded font-mono">
+                  Saved: {initialData.aadhaarMasked}
+                </span>
+              )}
+            </div>
+            <input
+              type="text"
+              value={aadhaar}
+              onChange={(e) => setAadhaar(e.target.value.replace(/\D/g, '').slice(0, 12))}
+              maxLength={12}
+              placeholder={initialData?.aadhaarMasked ? `Saved: ${initialData.aadhaarMasked}` : "12-digit Aadhaar number"}
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded text-xs font-mono text-slate-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-slate-800"
+            />
           </div>
         </div>
       </div>

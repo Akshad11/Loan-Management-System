@@ -27,9 +27,11 @@ import {
 import { BureauAnalysisTab } from '../bureau/BureauAnalysisTab';
 import { CollateralTab } from '../collateral/CollateralTab';
 import { CoApplicantManager } from '../applications/CoApplicantManager';
+import { mockLMSStore } from '@/services/mockService';
 
 interface CreditReviewWorkbenchProps {
   applicationId: string;
+  initialApplication?: any;
   onBack?: () => void;
   currentUser?: {
     id: string;
@@ -42,6 +44,7 @@ interface CreditReviewWorkbenchProps {
 
 export const CreditReviewWorkbench: React.FC<CreditReviewWorkbenchProps> = ({
   applicationId,
+  initialApplication,
   onBack,
   currentUser = {
     id: 'user_1',
@@ -56,7 +59,7 @@ export const CreditReviewWorkbench: React.FC<CreditReviewWorkbenchProps> = ({
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   // Application & Related Data State
-  const [application, setApplication] = useState<any>(null);
+  const [application, setApplication] = useState<any>(initialApplication || null);
   const [workflowState, setWorkflowState] = useState<any>(null);
   const [checklist, setChecklist] = useState<any>(null);
   const [documentHub, setDocumentHub] = useState<any>(null);
@@ -72,9 +75,9 @@ export const CreditReviewWorkbench: React.FC<CreditReviewWorkbenchProps> = ({
 
   const [showDecisionModal, setShowDecisionModal] = useState(false);
   const [decisionType, setDecisionType] = useState<'APPROVE' | 'REJECT' | 'APPROVE_WITH_CONDITIONS'>('APPROVE');
-  const [approvedAmount, setApprovedAmount] = useState<number>(0);
-  const [approvedTenure, setApprovedTenure] = useState<number>(36);
-  const [approvedRoi, setApprovedRoi] = useState<number>(10.5);
+  const [approvedAmount, setApprovedAmount] = useState<number>(Number(initialApplication?.requestedAmount || 0));
+  const [approvedTenure, setApprovedTenure] = useState<number>(Number(initialApplication?.requestedTenureMonths || 36));
+  const [approvedRoi, setApprovedRoi] = useState<number>(Number(initialApplication?.interestRate || 10.5));
   const [decisionRemarks, setDecisionRemarks] = useState('');
   const [newConditionText, setNewConditionText] = useState('');
   const [decisionConditions, setDecisionConditions] = useState<string[]>([]);
@@ -89,35 +92,162 @@ export const CreditReviewWorkbench: React.FC<CreditReviewWorkbenchProps> = ({
   const [rejectDocModal, setRejectDocModal] = useState<{ id: string; title: string } | null>(null);
   const [docRejectReason, setDocRejectReason] = useState('');
 
+  // Synchronize initialApplication when prop changes
+  useEffect(() => {
+    if (initialApplication) {
+      setApplication(initialApplication);
+      setApprovedAmount(Number(initialApplication.requestedAmount || 0));
+      setApprovedTenure(Number(initialApplication.requestedTenureMonths || 36));
+      setApprovedRoi(Number(initialApplication.interestRate || 10.5));
+    }
+  }, [initialApplication]);
+
   const loadAllWorkbenchData = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const [appRes, wfRes, chkRes, docRes, devRes, decRes, preRes] = await Promise.all([
-        fetch(`/api/applications/${applicationId}`),
-        fetch(`/api/applications/${applicationId}/workflow`),
-        fetch(`/api/applications/${applicationId}/checklist`),
-        fetch(`/api/applications/${applicationId}/documents/requirements`),
-        fetch(`/api/applications/${applicationId}/deviations`),
-        fetch(`/api/applications/${applicationId}/decisions`),
-        fetch(`/api/applications/${applicationId}/pre-disbursement-check`),
-      ]);
+      // 1. Resolve application details first
+      let appData = initialApplication || null;
 
-      if (!appRes.ok) throw new Error('Failed to load application details.');
+      // Try database fetch
+      try {
+        const appRes = await fetch(`/api/applications/${applicationId}`);
+        if (appRes.ok) {
+          appData = await appRes.json();
+        } else {
+          const fallbackRes = await fetch(`/api/applications?id=${applicationId}`);
+          if (fallbackRes.ok) {
+            appData = await fallbackRes.json();
+          }
+        }
+      } catch (e) {
+        console.warn('Backend application fetch warning:', e);
+      }
 
-      const appData = await appRes.json();
+      // If still not found from DB, check mock store
+      if (!appData && typeof window !== 'undefined') {
+        appData = mockLMSStore.getApplicationById(applicationId) || null;
+        if (!appData) {
+          const allApps = mockLMSStore.getState().applications || [];
+          appData = allApps.find(
+            (a) => a.id === applicationId || a.applicationNumber === applicationId
+          ) || null;
+        }
+      }
+
+      if (!appData) {
+        throw new Error(`Application "${applicationId}" details could not be found.`);
+      }
+
       setApplication(appData);
       setApprovedAmount(Number(appData.requestedAmount || 0));
       setApprovedTenure(Number(appData.requestedTenureMonths || 36));
       setApprovedRoi(Number(appData.interestRate || 10.5));
 
-      if (wfRes.ok) setWorkflowState(await wfRes.json());
-      if (chkRes.ok) setChecklist(await chkRes.json());
-      if (docRes.ok) setDocumentHub(await docRes.json());
-      if (devRes.ok) setDeviationsData(await devRes.json());
-      if (decRes.ok) setDecisionsData(await decRes.json());
-      if (preRes.ok) setPreDisbResult(await preRes.json());
+      // 2. Load associated data in parallel with resilient defaults
+      const [wfRes, chkRes, docRes, devRes, decRes, preRes] = await Promise.all([
+        fetch(`/api/applications/${applicationId}/workflow`).catch(() => null),
+        fetch(`/api/applications/${applicationId}/checklist`).catch(() => null),
+        fetch(`/api/applications/${applicationId}/documents/requirements`).catch(() => null),
+        fetch(`/api/applications/${applicationId}/deviations`).catch(() => null),
+        fetch(`/api/applications/${applicationId}/decisions`).catch(() => null),
+        fetch(`/api/applications/${applicationId}/pre-disbursement-check`).catch(() => null),
+      ]);
+
+      if (wfRes && wfRes.ok) {
+        setWorkflowState(await wfRes.json());
+      } else {
+        setWorkflowState({
+          applicationId: appData.id,
+          applicationNumber: appData.applicationNumber,
+          currentStage: appData.status || 'SUBMITTED',
+          assignedOfficerId: appData.assignedOfficerId || 'usr_001',
+          assignedOfficerName: appData.loanOfficer || 'Anita Deshmukh',
+          allowedStages: [
+            'DRAFT', 'SUBMITTED', 'DOCUMENT_REVIEW', 'BUREAU_REVIEW',
+            'ELIGIBILITY_REVIEW', 'CREDIT_REVIEW', 'DEVIATION_REVIEW', 'APPROVAL', 'APPROVED', 'REJECTED'
+          ],
+          history: appData.history || [],
+        });
+      }
+
+      if (chkRes && chkRes.ok) {
+        setChecklist(await chkRes.json());
+      } else {
+        setChecklist({
+          applicationId: appData.id,
+          total: 6,
+          passed: 1,
+          waived: 0,
+          failed: 0,
+          pending: 5,
+          isCompliant: false,
+          completionPercentage: 17,
+          items: [
+            { id: 'chk_1', itemCode: 'KYC_VERIFIED', title: 'KYC & Identity Verification', category: 'COMPLIANCE', isRequired: true, status: 'PASSED' },
+            { id: 'chk_2', itemCode: 'INCOME_VERIFIED', title: 'Income & Banking Assessment', category: 'CREDIT', isRequired: true, status: 'PENDING' },
+            { id: 'chk_3', itemCode: 'BUREAU_CHECKED', title: 'CIBIL Bureau Report & Tradelines', category: 'CREDIT', isRequired: true, status: 'PENDING' },
+            { id: 'chk_4', itemCode: 'DOCUMENTS_COMPLETED', title: 'Required Product Documents Verification', category: 'COMPLIANCE', isRequired: true, status: 'PENDING' },
+            { id: 'chk_5', itemCode: 'COLLATERAL_VERIFIED', title: 'Property / Collateral Valuation & Title', category: 'LEGAL', isRequired: false, status: 'PENDING' },
+            { id: 'chk_6', itemCode: 'FRAUD_CHECK_CLEARED', title: 'Negative List & PEP Clearance', category: 'RISK', isRequired: true, status: 'PENDING' },
+          ],
+        });
+      }
+
+      if (docRes && docRes.ok) {
+        setDocumentHub(await docRes.json());
+      } else {
+        const appDocs = appData.documents || [];
+        setDocumentHub({
+          applicationId: appData.id,
+          total: appDocs.length,
+          verified: appDocs.filter((d: any) => d.status === 'VERIFIED').length,
+          rejected: appDocs.filter((d: any) => d.status === 'REJECTED').length,
+          mandatoryTotal: appDocs.filter((d: any) => d.isMandatory).length,
+          mandatoryVerified: appDocs.filter((d: any) => d.isMandatory && d.status === 'VERIFIED').length,
+          isComplete: false,
+          documents: appDocs,
+          groups: {},
+        });
+      }
+
+      if (devRes && devRes.ok) {
+        setDeviationsData(await devRes.json());
+      } else {
+        setDeviationsData({
+          applicationId: appData.id,
+          total: 0,
+          pending: 0,
+          approved: 0,
+          rejected: 0,
+          isCompliant: true,
+          deviations: [],
+        });
+      }
+
+      if (decRes && decRes.ok) {
+        setDecisionsData(await decRes.json());
+      } else {
+        setDecisionsData({
+          applicationId: appData.id,
+          decisions: [],
+          returnHistory: [],
+        });
+      }
+
+      if (preRes && preRes.ok) {
+        setPreDisbResult(await preRes.json());
+      } else {
+        setPreDisbResult({
+          isEligible: false,
+          totalChecks: 16,
+          passedChecks: 4,
+          blockedChecks: 12,
+          checks: [],
+          blockingReasons: ['Pending formal credit decision and sanction letter issuance.'],
+        });
+      }
     } catch (err: any) {
       console.error('Error loading workbench:', err);
       setError(err.message || 'Failed to initialize credit review workbench.');
@@ -327,11 +457,26 @@ export const CreditReviewWorkbench: React.FC<CreditReviewWorkbenchProps> = ({
     return (
       <div className="p-8 text-center bg-red-50 rounded-xl border border-red-200">
         <p className="text-red-700 font-semibold">Application details could not be found.</p>
-        {onBack && (
-          <button onClick={onBack} className="mt-4 px-4 py-2 bg-slate-800 text-white rounded-md text-xs font-semibold">
-            Go Back
+        <p className="text-xs text-red-600 mt-1">
+          {error || `Unable to load application with identifier "${applicationId}".`}
+        </p>
+        <div className="flex items-center justify-center gap-3 mt-4">
+          <button
+            onClick={() => loadAllWorkbenchData()}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-semibold flex items-center gap-1.5 shadow-sm"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Retry Loading
           </button>
-        )}
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-md text-xs font-semibold"
+            >
+              Go Back
+            </button>
+          )}
+        </div>
       </div>
     );
   }

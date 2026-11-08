@@ -55,19 +55,19 @@ export const RepaymentSetupModal: React.FC<RepaymentSetupModalProps> = ({
     currentSettings.gracePeriodDays || 3
   );
   const [bankName, setBankName] = useState<string>(
-    currentSettings.bankName || 'HDFC Bank Ltd'
+    currentSettings.bankName && currentSettings.bankName !== 'Not configured' ? currentSettings.bankName : ''
   );
   const [bankAccountMasked, setBankAccountMasked] = useState<string>(
-    currentSettings.bankAccountMasked || '•••• •••• •••• 1284'
+    currentSettings.bankAccountMasked && currentSettings.bankAccountMasked !== 'Not configured' ? currentSettings.bankAccountMasked : ''
   );
   const [ifscCode, setIfscCode] = useState<string>(
-    currentSettings.ifscCode || 'HDFC0000120'
+    currentSettings.ifscCode && currentSettings.ifscCode !== 'Not configured' ? currentSettings.ifscCode : ''
   );
   const [accountHolderName, setAccountHolderName] = useState<string>(
     currentSettings.accountHolderName || loan.customerName
   );
   const [mandateReference, setMandateReference] = useState<string>(
-    currentSettings.mandateReference || `UMRN-HDFC-2026-${Date.now().toString().slice(-6)}`
+    currentSettings.mandateReference || ''
   );
 
   if (!isOpen) return null;

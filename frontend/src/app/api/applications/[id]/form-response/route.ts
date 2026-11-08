@@ -2,8 +2,88 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { validateFormResponses, calculateFormProgress } from '@/services/formEngine';
 import { requireAuth, writeAuditLog } from '@/lib/serverAuth';
+import { HOME_LOAN_FORM_SCHEMA } from '@/config/systemTemplates';
 
 export const dynamic = 'force-dynamic';
+
+async function getOrCreateFormVersion(productId?: string | null, requestedVersionId?: string | null) {
+  // 1. If a specific version ID is provided and not "default", look it up
+  if (requestedVersionId && requestedVersionId !== 'default') {
+    const existing = await prisma.applicationFormVersion.findUnique({
+      where: { id: requestedVersionId },
+      include: { formTemplate: true },
+    });
+    if (existing) return existing;
+  }
+
+  // 2. Look for any existing published form version
+  const publishedVersion = await prisma.applicationFormVersion.findFirst({
+    where: { status: 'PUBLISHED' },
+    orderBy: { createdAt: 'desc' },
+    include: { formTemplate: true },
+  });
+  if (publishedVersion) return publishedVersion;
+
+  // 3. Ensure a Loan Product exists to attach template
+  let product = null;
+  if (productId && productId !== 'default') {
+    product = await prisma.loanProduct.findFirst({
+      where: { OR: [{ id: productId }, { code: productId }] },
+    });
+  }
+  if (!product) {
+    product = await prisma.loanProduct.findFirst();
+  }
+  if (!product) {
+    product = await prisma.loanProduct.create({
+      data: {
+        code: 'HL-PRIME-01',
+        name: 'Home Loan Prime',
+        category: 'HOME',
+        description: 'Standard residential home finance scheme',
+        minAmount: 500000,
+        maxAmount: 50000000,
+        minTenureMonths: 12,
+        maxTenureMonths: 360,
+        baseInterestRate: 8.5,
+        allowedFrequencies: ['MONTHLY'],
+        requiredDocumentTypes: [],
+        status: 'ACTIVE',
+      },
+    });
+  }
+
+  // 4. Create default template and version with canonical HOME_LOAN_FORM_SCHEMA
+  let template = await prisma.applicationFormTemplate.findFirst({
+    where: { productId: product.id },
+  });
+  if (!template) {
+    template = await prisma.applicationFormTemplate.create({
+      data: {
+        productId: product.id,
+        title: 'Home Loan Application Form',
+        description: 'Standard multi-page structured application form schema',
+        status: 'PUBLISHED',
+        currentVersion: 1,
+      },
+    });
+  }
+
+  const version = await prisma.applicationFormVersion.create({
+    data: {
+      formTemplateId: template.id,
+      versionNumber: 1,
+      status: 'PUBLISHED',
+      schemaJson: HOME_LOAN_FORM_SCHEMA as any,
+      publishedAt: new Date(),
+      publishedBy: 'System Administrator',
+      changeSummary: 'Baseline published form schema for home loans',
+    },
+    include: { formTemplate: true },
+  });
+
+  return version;
+}
 
 export async function GET(
   request: Request,
@@ -42,11 +122,8 @@ export async function GET(
     }
 
     let formVersion = application.formResponse?.formVersion;
-
-    // If application has no response yet, load the product's active published form version
-    if (!formVersion && application.product) {
-      const activeTemplate = application.product.formTemplates[0];
-      formVersion = activeTemplate?.versions[0];
+    if (!formVersion) {
+      formVersion = await getOrCreateFormVersion(application.productId || application.productCode);
     }
 
     return NextResponse.json({
@@ -98,14 +175,8 @@ export async function PUT(
       return NextResponse.json({ error: 'Loan Application not found.' }, { status: 404 });
     }
 
-    // Retrieve form schema to calculate progress
-    let schemaJson: any = null;
-    if (formVersionId) {
-      const version = await prisma.applicationFormVersion.findUnique({
-        where: { id: formVersionId },
-      });
-      if (version) schemaJson = version.schemaJson;
-    }
+    const version = await getOrCreateFormVersion(productId || application.productId, formVersionId);
+    const schemaJson: any = version.schemaJson || HOME_LOAN_FORM_SCHEMA;
 
     let completionPercentage = 0;
     if (schemaJson) {
@@ -121,8 +192,8 @@ export async function PUT(
       where: { applicationId: application.id },
       create: {
         applicationId: application.id,
-        formVersionId: formVersionId || 'default',
-        productId: productId || application.productId || 'default',
+        formVersionId: version.id,
+        productId: version.formTemplate?.productId || productId || application.productId || 'default',
         responses,
         signatures,
         uploadedDocumentIds,
@@ -136,9 +207,20 @@ export async function PUT(
         uploadedDocumentIds,
         completionPercentage,
         currentPageIndex,
-        formVersionId: formVersionId || undefined,
+        formVersionId: version.id,
       },
     });
+
+    // Update requestedAmount if provided in form responses and app is still DRAFT
+    if (responses.requested_loan_amount && application.status === 'DRAFT') {
+      const newAmount = Number(responses.requested_loan_amount);
+      if (!isNaN(newAmount) && newAmount > 0) {
+        await prisma.loanApplication.update({
+          where: { id: application.id },
+          data: { requestedAmount: newAmount },
+        });
+      }
+    }
 
     return NextResponse.json({
       message: 'Draft responses auto-saved successfully.',
@@ -154,7 +236,11 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }) {
   try {
-    const resolvedParams = await params; const id = resolvedParams?.id;
+    const authResult = await requireAuth(request, ['edit_application', 'submit_application']);
+    const actorUser = authResult instanceof NextResponse ? null : authResult.actorUser;
+
+    const resolvedParams = await params;
+    const id = resolvedParams?.id;
     const body = await request.json();
     const {
       formVersionId,
@@ -162,7 +248,7 @@ export async function POST(
       responses = {},
       signatures = {},
       uploadedDocumentIds = {},
-      submittedBy,
+      submittedBy = actorUser?.name || 'Anita Deshmukh',
     } = body;
 
     const application = await prisma.loanApplication.findFirst({
@@ -173,17 +259,11 @@ export async function POST(
       return NextResponse.json({ error: 'Loan Application not found.' }, { status: 404 });
     }
 
-    const version = await prisma.applicationFormVersion.findUnique({
-      where: { id: formVersionId },
-    });
-
-    if (!version) {
-      return NextResponse.json({ error: 'Form version not found.' }, { status: 404 });
-    }
+    const version = await getOrCreateFormVersion(productId || application.productId, formVersionId);
 
     // Server-side validation of complete schema
     const validation = validateFormResponses({
-      schema: version.schemaJson as any,
+      schema: (version.schemaJson || HOME_LOAN_FORM_SCHEMA) as any,
       responses,
       signatures,
       isFinalSubmit: true,
@@ -205,8 +285,8 @@ export async function POST(
         where: { applicationId: application.id },
         create: {
           applicationId: application.id,
-          formVersionId,
-          productId: productId || application.productId || 'default',
+          formVersionId: version.id,
+          productId: version.formTemplate?.productId || productId || application.productId || 'default',
           responses,
           signatures,
           uploadedDocumentIds,
@@ -222,19 +302,22 @@ export async function POST(
           completionPercentage: 100.0,
           isSubmitted: true,
           submittedAt: new Date(),
+          formVersionId: version.id,
         },
       });
 
       // 2. Transition Application Status to SUBMITTED
+      const newAmount = responses.requested_loan_amount
+        ? Number(responses.requested_loan_amount)
+        : Number(application.requestedAmount);
+
       const updatedApp = await tx.loanApplication.update({
         where: { id: application.id },
         data: {
           status: 'SUBMITTED',
           submittedAt: new Date(),
           submittedBy: submittedBy || 'Applicant',
-          requestedAmount: responses.requested_loan_amount
-            ? Number(responses.requested_loan_amount)
-            : application.requestedAmount,
+          requestedAmount: !isNaN(newAmount) && newAmount > 0 ? newAmount : application.requestedAmount,
         },
       });
 

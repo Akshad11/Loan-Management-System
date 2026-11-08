@@ -24,6 +24,8 @@ export const ApplicationStatusBadge: React.FC<ApplicationStatusBadgeProps> = ({
         return 'bg-emerald-50 text-emerald-700 border-emerald-300';
       case 'SANCTIONED':
         return 'bg-teal-50 text-teal-800 border-teal-300';
+      case 'DISBURSED':
+        return 'bg-emerald-100 text-emerald-800 border-emerald-400 font-bold';
       case 'REJECTED':
         return 'bg-rose-50 text-rose-700 border-rose-300';
       case 'CANCELLED':
@@ -47,6 +49,8 @@ export const ApplicationStatusBadge: React.FC<ApplicationStatusBadgeProps> = ({
         return 'Approved';
       case 'SANCTIONED':
         return 'Sanctioned';
+      case 'DISBURSED':
+        return 'Disbursed';
       case 'REJECTED':
         return 'Rejected';
       case 'CANCELLED':

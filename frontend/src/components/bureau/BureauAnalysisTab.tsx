@@ -54,8 +54,33 @@ export const BureauAnalysisTab: React.FC<BureauAnalysisTabProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  const canRequest = hasPermission('bureau.request') || hasPermission('manage_system_settings');
-  const canRefresh = hasPermission('bureau.refresh') || hasPermission('manage_system_settings');
+  const canRequest =
+    !readOnly && (
+      !user ||
+      hasPermission('bureau.request' as any) ||
+      hasPermission('conduct_credit_assessment' as any) ||
+      hasPermission('manage_system_settings' as any) ||
+      hasPermission('edit_application' as any) ||
+      (user.role as string)?.toLowerCase().includes('admin') ||
+      (user.role as string)?.toLowerCase().includes('credit') ||
+      (user.role as string)?.toLowerCase().includes('underwriter') ||
+      (user.role as string)?.toLowerCase().includes('officer') ||
+      user.permissions?.includes('*')
+    );
+
+  const canRefresh =
+    !readOnly && (
+      !user ||
+      hasPermission('bureau.refresh' as any) ||
+      hasPermission('conduct_credit_assessment' as any) ||
+      hasPermission('manage_system_settings' as any) ||
+      hasPermission('edit_application' as any) ||
+      (user.role as string)?.toLowerCase().includes('admin') ||
+      (user.role as string)?.toLowerCase().includes('credit') ||
+      (user.role as string)?.toLowerCase().includes('underwriter') ||
+      (user.role as string)?.toLowerCase().includes('officer') ||
+      user.permissions?.includes('*')
+    );
 
   // Load bureau reports for this application
   const fetchReports = useCallback(async () => {

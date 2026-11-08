@@ -37,8 +37,10 @@ export interface PreDisbursementResult {
 export async function executePreDisbursementGatekeeper(
   applicationId: string
 ): Promise<PreDisbursementResult> {
-  const app = await prisma.loanApplication.findUnique({
-    where: { id: applicationId },
+  const app = await prisma.loanApplication.findFirst({
+    where: {
+      OR: [{ id: applicationId }, { applicationNumber: applicationId }],
+    },
     include: {
       customer: {
         include: {

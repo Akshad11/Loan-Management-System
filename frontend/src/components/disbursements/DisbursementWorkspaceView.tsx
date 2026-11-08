@@ -85,7 +85,8 @@ export const DisbursementWorkspaceView: React.FC<DisbursementWorkspaceViewProps>
   const latestReq = disbursement.requests[0];
   const readiness = store.evaluateDisbursementReadiness(disbursement.sanctionId);
   const isMaker = latestReq?.requestedByName?.trim().toLowerCase() === currentUser.name.trim().toLowerCase();
-  const canApproveCurrent = canApproveDisbursement && !isMaker && latestReq?.status === 'PENDING_APPROVAL';
+  const isAdmin = currentUser.roleName === 'System Administrator' || currentUser.roleName?.toLowerCase().includes('admin');
+  const canApproveCurrent = canApproveDisbursement && (!isMaker || isAdmin) && latestReq?.status === 'PENDING_APPROVAL';
   const canExecuteCurrent = canExecuteDisbursement && (latestReq?.status === 'APPROVED' || latestReq?.status === 'FAILED');
 
   const handleApprove = (notes: string) => {
@@ -185,8 +186,14 @@ export const DisbursementWorkspaceView: React.FC<DisbursementWorkspaceViewProps>
                 className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-lg shadow-xs transition-colors"
               >
                 <ShieldCheck className="w-4 h-4" />
-                Checker Review
+                {isMaker && isAdmin ? 'Checker Review (Admin Override)' : 'Checker Review'}
               </button>
+            )}
+
+            {isMaker && !isAdmin && latestReq?.status === 'PENDING_APPROVAL' && (
+              <span className="text-xs px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg font-medium flex items-center gap-1">
+                <Clock className="w-3.5 h-3.5" /> Pending Checker Review (You are the requester)
+              </span>
             )}
 
             {canExecuteCurrent && (
@@ -716,6 +723,7 @@ export const DisbursementWorkspaceView: React.FC<DisbursementWorkspaceViewProps>
           onClose={() => setShowCreateModal(false)}
           sanctions={store.sanctions || []}
           disbursements={store.disbursements || []}
+          customers={store.customers || []}
           onCreateRequest={handleCreateNewRequest}
         />
       )}

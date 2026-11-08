@@ -25,7 +25,6 @@ export const NAV_ITEMS: NavItem[] = [
     group: 'Operations',
     iconName: 'ShieldCheck',
     requiredPermission: 'view_customers',
-    badgeCount: 2,
   },
   {
     id: 'documents',
@@ -50,7 +49,6 @@ export const NAV_ITEMS: NavItem[] = [
     group: 'Operations',
     iconName: 'Banknote',
     requiredPermission: 'view_disbursements',
-    badgeCount: 2,
   },
   {
     id: 'loans',
@@ -75,7 +73,6 @@ export const NAV_ITEMS: NavItem[] = [
     group: 'Operations',
     iconName: 'AlertOctagon',
     requiredPermission: 'view_collections',
-    badgeCount: 2,
   },
   {
     id: 'recovery',
@@ -84,7 +81,6 @@ export const NAV_ITEMS: NavItem[] = [
     group: 'Operations',
     iconName: 'ShieldAlert',
     requiredPermission: 'view_collections',
-    badgeCount: 3,
   },
   {
     id: 'restructuring',
@@ -119,7 +115,6 @@ export const NAV_ITEMS: NavItem[] = [
     group: 'Credit',
     iconName: 'ShieldCheck',
     requiredPermission: 'view_credit_assessment',
-    badgeCount: 3,
   },
   {
     id: 'approvals',
@@ -128,7 +123,6 @@ export const NAV_ITEMS: NavItem[] = [
     group: 'Credit',
     iconName: 'CheckCircle2',
     requiredPermission: 'view_approvals',
-    badgeCount: 4,
   },
   {
     id: 'sanctions',

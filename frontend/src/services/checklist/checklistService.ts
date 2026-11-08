@@ -32,8 +32,10 @@ export async function initializeChecklistForApplication(
   applicationId: string,
   actorUser?: AuthContextUser
 ) {
-  const app = await prisma.loanApplication.findUnique({
-    where: { id: applicationId },
+  const app = await prisma.loanApplication.findFirst({
+    where: {
+      OR: [{ id: applicationId }, { applicationNumber: applicationId }],
+    },
     include: {
       checklistItems: true,
       collaterals: true,
@@ -61,9 +63,8 @@ export async function initializeChecklistForApplication(
     if (tpl.itemCode === 'CO_APPLICANT_VERIFIED') {
       isRequired = hasCoApplicants;
     }
-
     return {
-      applicationId,
+      applicationId: app.id,
       itemCode: tpl.itemCode,
       title: tpl.title,
       category: tpl.category,
@@ -77,7 +78,7 @@ export async function initializeChecklistForApplication(
   });
 
   const created = await prisma.creditChecklistItem.findMany({
-    where: { applicationId },
+    where: { applicationId: app.id },
     orderBy: { createdAt: 'asc' },
   });
 
@@ -85,7 +86,7 @@ export async function initializeChecklistForApplication(
     await writeAuditLog({
       actorUser,
       entityType: 'CHECKLIST',
-      entityId: applicationId,
+      entityId: app.id,
       entityName: app.applicationNumber,
       action: 'INITIALIZE_CHECKLIST',
       details: `Initialized ${created.length} checklist items for application ${app.applicationNumber}`,
@@ -99,13 +100,22 @@ export async function initializeChecklistForApplication(
  * Fetches all checklist items for an application with aggregate metrics.
  */
 export async function getChecklist(applicationId: string) {
+  const app = await prisma.loanApplication.findFirst({
+    where: {
+      OR: [{ id: applicationId }, { applicationNumber: applicationId }],
+    },
+    select: { id: true },
+  });
+
+  const targetAppId = app ? app.id : applicationId;
+
   let items = await prisma.creditChecklistItem.findMany({
-    where: { applicationId },
+    where: { applicationId: targetAppId },
     orderBy: { createdAt: 'asc' },
   });
 
   if (items.length === 0) {
-    items = await initializeChecklistForApplication(applicationId);
+    items = await initializeChecklistForApplication(targetAppId);
   }
 
   const total = items.length;
@@ -152,7 +162,7 @@ export async function updateChecklistItem(params: {
     include: { application: true },
   });
 
-  if (!item || item.applicationId !== applicationId) {
+  if (!item || (item.applicationId !== applicationId && item.application?.applicationNumber !== applicationId)) {
     throw new Error(`Checklist item ${itemId} not found for application ${applicationId}.`);
   }
 

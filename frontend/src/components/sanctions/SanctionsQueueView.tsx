@@ -93,15 +93,20 @@ export const SanctionsQueueView: React.FC<SanctionsQueueViewProps> = ({
     terms?: any;
     termDeviationReason?: string;
   }) => {
-    const newSanction = store.createSanction({
-      applicationId: data.applicationId,
-      approvalId: data.approvalId,
-      terms: data.terms,
-      deviationReason: data.termDeviationReason,
-      actorName: currentUser.name,
-      actorRole: currentUser.roleName,
-    });
-    onSelectSanction(newSanction);
+    try {
+      const newSanction = store.createSanction({
+        applicationId: data.applicationId,
+        approvalId: data.approvalId,
+        terms: data.terms,
+        deviationReason: data.termDeviationReason,
+        actorName: currentUser.name,
+        actorRole: currentUser.roleName,
+      });
+      setShowCreateModal(false);
+      onSelectSanction(newSanction);
+    } catch (err: any) {
+      alert(err?.message || 'Failed to create sanction');
+    }
   };
 
   const handleConfirmSanctionAction = (notes: string) => {

@@ -29,8 +29,10 @@ export async function createDeviation(input: CreateDeviationInput) {
     request,
   } = input;
 
-  const app = await prisma.loanApplication.findUnique({
-    where: { id: applicationId },
+  const app = await prisma.loanApplication.findFirst({
+    where: {
+      OR: [{ id: applicationId }, { applicationNumber: applicationId }],
+    },
   });
 
   if (!app) {
@@ -38,14 +40,14 @@ export async function createDeviation(input: CreateDeviationInput) {
   }
 
   const count = await prisma.applicationDeviation.count({
-    where: { applicationId },
+    where: { applicationId: app.id },
   });
   const deviationNumber = `DEV-${app.applicationNumber.replace('APP-', '')}-${String(count + 1).padStart(2, '0')}`;
 
   const deviation = await prisma.applicationDeviation.create({
     data: {
       deviationNumber,
-      applicationId,
+      applicationId: app.id,
       category,
       title: title.trim(),
       deviationReason: deviationReason.trim(),
@@ -88,7 +90,7 @@ export async function approveDeviation(params: {
     include: { application: true },
   });
 
-  if (!dev || dev.applicationId !== applicationId) {
+  if (!dev || (dev.applicationId !== applicationId && dev.application?.applicationNumber !== applicationId)) {
     throw new Error(`Deviation ${deviationId} not found for application ${applicationId}.`);
   }
 
@@ -138,7 +140,7 @@ export async function rejectDeviation(params: {
     include: { application: true },
   });
 
-  if (!dev || dev.applicationId !== applicationId) {
+  if (!dev || (dev.applicationId !== applicationId && dev.application?.applicationNumber !== applicationId)) {
     throw new Error(`Deviation ${deviationId} not found for application ${applicationId}.`);
   }
 
@@ -170,8 +172,16 @@ export async function rejectDeviation(params: {
  * Gets all deviations for an application with summary status.
  */
 export async function getApplicationDeviations(applicationId: string) {
+  const app = await prisma.loanApplication.findFirst({
+    where: {
+      OR: [{ id: applicationId }, { applicationNumber: applicationId }],
+    },
+    select: { id: true },
+  });
+  const effectiveId = app?.id || applicationId;
+
   const deviations = await prisma.applicationDeviation.findMany({
-    where: { applicationId },
+    where: { applicationId: effectiveId },
     orderBy: { requestedAt: 'desc' },
   });
 

@@ -87,12 +87,14 @@ export const DisbursementTransactionModal: React.FC<DisbursementTransactionModal
             <div className="flex justify-between">
               <span className="text-slate-500">Bank & Account:</span>
               <span className="font-mono text-slate-900">
-                {beneficiary?.bankName || 'HDFC Bank'} • {beneficiary?.accountNumberMasked || '•••• •••• •••• 0192'}
+                {beneficiary?.bankName
+                  ? `${beneficiary.bankName} • ${beneficiary.accountNumberMasked || '•••• •••• ••••'}`
+                  : 'Account Details Pending'}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-500">IFSC Code:</span>
-              <span className="font-mono text-slate-900">{beneficiary?.ifscCode || 'HDFC0000120'}</span>
+              <span className="font-mono text-slate-900">{beneficiary?.ifscCode || 'Not provided'}</span>
             </div>
           </div>
 

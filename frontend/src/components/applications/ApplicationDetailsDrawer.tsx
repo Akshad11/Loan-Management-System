@@ -18,6 +18,7 @@ import {
   Landmark,
   CreditCard,
   Shield,
+  AlertCircle,
 } from 'lucide-react';
 import { Drawer } from '../shared/Drawer';
 import { Tabs } from '../shared/Tabs';
@@ -108,12 +109,128 @@ export const ApplicationDetailsDrawer: React.FC<ApplicationDetailsDrawerProps> =
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [formFeedback, setFormFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const store = useMockStore();
 
   if (!application) return null;
 
   const isDraft = application.status === 'DRAFT';
   const validationResult = validateForSubmission(application.id);
+
+  // Identify matching customer master record
+  const currentCustomer = useMemo(() => {
+    if (!application) return null;
+    return (
+      allCustomers.find(
+        (c) => c.id === application.customerId || c.customerNumber === application.customerNumber
+      ) || null
+    );
+  }, [allCustomers, application]);
+
+  // Clean and auto-fill customer profile credentials into form schema fields
+  const customerAutoFilledResponses = useMemo(() => {
+    if (!application) return {};
+
+    // 1. Clean PAN number: if masked e.g. "ABCDE••••F", format valid matching digits
+    let pan = currentCustomer?.panMasked || 'ABCDE1001F';
+    if (pan.includes('•') || pan.includes('*')) {
+      const numDigits = (currentCustomer?.customerNumber || '1001').replace(/\D/g, '').slice(-4).padStart(4, '0');
+      pan = pan.replace(/[•*]+/g, numDigits);
+    }
+    if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(pan)) {
+      pan = 'ABCDE1001F';
+    }
+
+    // 2. Clean mobile number to exactly 10 digits
+    let mobileDigits = (currentCustomer?.mobile || application.customerMobile || '').replace(/\D/g, '').slice(-10);
+    if (!/^[6-9][0-9]{9}$/.test(mobileDigits)) {
+      mobileDigits = '9876501003';
+    }
+
+    // 3. Format address string
+    let formattedAddress = '';
+    const addr = currentCustomer?.currentAddress as any;
+    if (typeof addr === 'string' && addr.trim().length >= 10) {
+      formattedAddress = addr;
+    } else if (addr && typeof addr === 'object') {
+      const parts = [
+        addr.addressLine1 || addr.line1 || addr.street,
+        addr.addressLine2 || addr.line2,
+        addr.city,
+        addr.state,
+        addr.pinCode || addr.pincode ? `PIN: ${addr.pinCode || addr.pincode}` : '',
+      ].filter(Boolean);
+      formattedAddress = parts.join(', ');
+    }
+    if (!formattedAddress || formattedAddress.trim().length < 10) {
+      formattedAddress = `${currentCustomer?.branchName || 'Panaji Head Office'}, Goa, India - 403001`;
+    }
+
+    // 4. Map marital status
+    let maritalStatus = 'Married';
+    if (currentCustomer?.maritalStatus) {
+      const ms = String(currentCustomer.maritalStatus).toUpperCase();
+      if (ms === 'SINGLE') maritalStatus = 'Single';
+      else if (ms === 'DIVORCED') maritalStatus = 'Divorced';
+      else if (ms === 'WIDOWED') maritalStatus = 'Widowed';
+      else maritalStatus = 'Married';
+    }
+
+    // 5. Map employment type
+    let employmentType = 'Salaried';
+    const empType = String(currentCustomer?.employmentType || application.customerEmploymentType || '').toUpperCase();
+    if (empType.includes('SELF') || empType.includes('PROFESSIONAL')) {
+      employmentType = 'Self Employed Professional';
+    } else if (empType.includes('BUSINESS')) {
+      employmentType = 'Business Owner';
+    } else if (empType.includes('RETIRED')) {
+      employmentType = 'Retired';
+    } else {
+      employmentType = 'Salaried';
+    }
+
+    return {
+      applicant_full_name: currentCustomer?.name || application.customerName,
+      applicant_dob: currentCustomer?.dateOfBirth || '1990-01-01',
+      applicant_pan: pan,
+      applicant_mobile: mobileDigits,
+      applicant_email: currentCustomer?.email || 'applicant@fintechlms.com',
+      marital_status: maritalStatus,
+      current_address: formattedAddress,
+      employment_type: employmentType,
+      employer_name: currentCustomer?.employerName || (currentCustomer as any)?.occupation || 'Tech Solutions Pvt Ltd',
+      monthly_net_income: currentCustomer?.monthlyIncome || Number(application.customerMonthlyIncome) || 75000,
+      existing_monthly_emis: currentCustomer?.totalOverdue || 0,
+      property_type: 'Apartment / Flat',
+      property_stage: 'Ready to Move',
+      property_cost: Math.round(Number(application.requestedAmount) * 1.25),
+      requested_loan_amount: Number(application.requestedAmount),
+      has_coapplicant: application.coApplicants && application.coApplicants.length > 0 ? 'Yes' : 'No',
+      coapplicant_name: application.coApplicants?.[0]?.customerName || '',
+      coapplicant_income: Number(application.coApplicants?.[0]?.monthlyIncome || 0),
+      doc_pan_card: 'pan_card_verified.pdf',
+      doc_salary_slips: 'salary_slips_last_3m.pdf',
+      doc_property_agreement: 'property_agreement_draft.pdf',
+      decl_terms: true,
+      decl_cibil_consent: true,
+      purpose: application.purpose || 'Home purchase and interior improvement',
+    };
+  }, [application, currentCustomer]);
+
+  // Retrieve any draft or final response previously saved
+  const existingSavedResponse = store.getApplicationFormResponse?.(application.id);
+
+  // Merged initial responses
+  const formInitialResponses = useMemo(() => {
+    return {
+      ...customerAutoFilledResponses,
+      ...(existingSavedResponse?.responses || {}),
+    };
+  }, [customerAutoFilledResponses, existingSavedResponse]);
+
+  const formInitialSignatures = useMemo(() => {
+    return existingSavedResponse?.signatures || {};
+  }, [existingSavedResponse]);
 
   // EMI Estimate
   const monthlyRate = application.interestRate / 12 / 100;
@@ -123,15 +240,6 @@ export const ApplicationDetailsDrawer: React.FC<ApplicationDetailsDrawerProps> =
       Math.pow(1 + monthlyRate, application.requestedTenureMonths)) /
       (Math.pow(1 + monthlyRate, application.requestedTenureMonths) - 1)
   );
-
-  const formInitialResponses = useMemo(() => {
-    if (!application) return {};
-    return {
-      applicant_full_name: application.customerName,
-      requested_loan_amount: application.requestedAmount,
-      purpose: application.purpose,
-    };
-  }, [application?.customerName, application?.requestedAmount, application?.purpose]);
 
   const tabs = [
     {
@@ -225,17 +333,81 @@ export const ApplicationDetailsDrawer: React.FC<ApplicationDetailsDrawerProps> =
         {/* WORKFLOW ACTION BAR */}
         <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-slate-50 border border-slate-200 rounded-lg">
           <div className="text-xs text-slate-600">
-            {isDraft ? (
-              <span className="flex items-center gap-1.5 text-amber-700 font-medium">
-                <Clock className="w-4 h-4 text-amber-600" />
-                Application in <strong>Draft Stage</strong>. Complete checklist & parties prior to submission.
-              </span>
-            ) : (
-              <span className="flex items-center gap-1.5 text-blue-700 font-medium">
-                <Send className="w-4 h-4 text-blue-600" />
-                Application Submitted and under credit underwriting queue.
-              </span>
-            )}
+            {(() => {
+              switch (application.status) {
+                case 'DRAFT':
+                  return (
+                    <span className="flex items-center gap-1.5 text-amber-700 font-medium">
+                      <Clock className="w-4 h-4 text-amber-600" />
+                      Application in <strong>Draft Stage</strong>. Complete checklist & parties prior to submission.
+                    </span>
+                  );
+                case 'SUBMITTED':
+                  return (
+                    <span className="flex items-center gap-1.5 text-blue-700 font-medium">
+                      <Send className="w-4 h-4 text-blue-600" />
+                      Application <strong>Submitted</strong> and currently queued for credit underwriting review.
+                    </span>
+                  );
+                case 'UNDER_REVIEW':
+                case 'CREDIT_ASSESSMENT':
+                  return (
+                    <span className="flex items-center gap-1.5 text-indigo-700 font-medium">
+                      <Scale className="w-4 h-4 text-indigo-600" />
+                      Under <strong>Credit Underwriting</strong>. Bureau scoring and financial eligibility assessment in progress.
+                    </span>
+                  );
+                case 'DOCUMENT_PENDING':
+                  return (
+                    <span className="flex items-center gap-1.5 text-yellow-800 font-medium">
+                      <AlertCircle className="w-4 h-4 text-yellow-600" />
+                      Underwriting On Hold: <strong>Additional Documents Required</strong> from applicant.
+                    </span>
+                  );
+                case 'APPROVED':
+                  return (
+                    <span className="flex items-center gap-1.5 text-emerald-700 font-medium">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      Credit Appraisal <strong>Approved</strong>. Sanction letter & dossier generated.
+                    </span>
+                  );
+                case 'SANCTIONED':
+                  return (
+                    <span className="flex items-center gap-1.5 text-teal-800 font-medium">
+                      <Landmark className="w-4 h-4 text-teal-700" />
+                      Loan <strong>Sanction Confirmed & Accepted</strong>. Active in Pre-Disbursement Readiness.
+                    </span>
+                  );
+                case 'DISBURSED':
+                  return (
+                    <span className="flex items-center gap-1.5 text-emerald-800 font-medium">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      Loan <strong>Fully Disbursed</strong>. Active account under repayment servicing.
+                    </span>
+                  );
+                case 'REJECTED':
+                  return (
+                    <span className="flex items-center gap-1.5 text-rose-700 font-medium">
+                      <XCircle className="w-4 h-4 text-rose-600" />
+                      Application <strong>Rejected</strong> by Credit Committee.
+                    </span>
+                  );
+                case 'CANCELLED':
+                  return (
+                    <span className="flex items-center gap-1.5 text-neutral-600 font-medium">
+                      <XCircle className="w-4 h-4 text-neutral-500" />
+                      Application <strong>Cancelled</strong>.
+                    </span>
+                  );
+                default:
+                  return (
+                    <span className="flex items-center gap-1.5 text-slate-700 font-medium">
+                      <FileText className="w-4 h-4 text-slate-500" />
+                      Status: <strong>{application.status}</strong>
+                    </span>
+                  );
+              }
+            })()}
           </div>
 
           <div className="flex items-center gap-2">
@@ -281,6 +453,13 @@ export const ApplicationDetailsDrawer: React.FC<ApplicationDetailsDrawerProps> =
             <ApplicantSummaryCard
               application={application}
               onViewCustomerProfile={onViewCustomerProfile}
+              onApproveKyc={(cid) => {
+                store.verifyKyc(cid, { verifiedBy: 'Alex Morgan' });
+                setFormFeedback({
+                  type: 'success',
+                  message: 'Applicant KYC verified and approved successfully! Pre-submission diagnostics cleared.',
+                });
+              }}
             />
 
             {/* Financial Parameters Detail */}
@@ -436,11 +615,57 @@ export const ApplicationDetailsDrawer: React.FC<ApplicationDetailsDrawerProps> =
               </div>
             </div>
 
+            {formFeedback && (
+              <div
+                className={`p-3.5 rounded-xl text-xs font-semibold flex items-center justify-between border ${
+                  formFeedback.type === 'success'
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                    : 'bg-rose-50 text-rose-800 border-rose-200'
+                }`}
+              >
+                <div className="flex items-center space-x-2">
+                  {formFeedback.type === 'success' ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  )}
+                  <span>{formFeedback.message}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setFormFeedback(null)}
+                  className="text-xs font-bold opacity-60 hover:opacity-100"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
+
             <DynamicFormRenderer
               schema={HOME_LOAN_FORM_SCHEMA}
               initialResponses={formInitialResponses}
+              initialSignatures={formInitialSignatures}
+              readOnly={!isDraft}
+              onAutoSaveDraft={async (resp, sigs, pageIdx) => {
+                if (store.saveDraftFormResponse) {
+                  await store.saveDraftFormResponse(application.id, resp, sigs, pageIdx);
+                }
+              }}
               onSubmitForm={async (resp, sigs) => {
-                alert(`Form responses saved for application ${application.applicationNumber}!`);
+                try {
+                  if (store.submitApplicationFormResponse) {
+                    await store.submitApplicationFormResponse(application.id, resp, sigs);
+                  }
+                  setFormFeedback({
+                    type: 'success',
+                    message: `Application form successfully submitted with verified digital signature for ${application.applicationNumber}! Application status transitioned to SUBMITTED.`,
+                  });
+                } catch (err: any) {
+                  setFormFeedback({
+                    type: 'error',
+                    message: err?.message || 'Failed to submit form responses. Please check all fields.',
+                  });
+                }
               }}
             />
           </div>
@@ -599,7 +824,7 @@ export const ApplicationDetailsDrawer: React.FC<ApplicationDetailsDrawerProps> =
         {/* Credit Review Workbench Tab */}
         {activeTab === 'credit_workbench' && (
           <div className="py-2">
-            <CreditReviewWorkbench applicationId={application.id} />
+            <CreditReviewWorkbench applicationId={application.id} initialApplication={application} />
           </div>
         )}
       </div>

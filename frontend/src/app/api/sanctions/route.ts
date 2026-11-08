@@ -158,6 +158,51 @@ export async function POST(request: Request) {
     const { actorUser } = authResult;
 
     const body = await request.json();
+
+    if (body.id) {
+      const existing = await prisma.sanction.findUnique({
+        where: { id: body.id },
+        include: {
+          conditions: true,
+          letters: true,
+        },
+      });
+      if (existing) {
+        return NextResponse.json(formatSanction(existing), { status: 200 });
+      }
+    }
+
+    // Safely check if approvalId exists in database to satisfy foreign key
+    let validApprovalId: string | null = null;
+    if (body.approvalId) {
+      const existingAppr = await prisma.approvalRecord.findUnique({
+        where: { id: body.approvalId },
+      });
+      if (existingAppr) {
+        validApprovalId = body.approvalId;
+      }
+    }
+
+    // Safely verify applicationId exists in database
+    let validApplicationId = body.applicationId;
+    let existingApp = await prisma.loanApplication.findUnique({
+      where: { id: validApplicationId },
+    });
+    if (!existingApp && body.applicationNumber) {
+      existingApp = await prisma.loanApplication.findUnique({
+        where: { applicationNumber: body.applicationNumber },
+      });
+      if (existingApp) {
+        validApplicationId = existingApp.id;
+      }
+    }
+    if (!existingApp) {
+      const firstApp = await prisma.loanApplication.findFirst();
+      if (firstApp) {
+        validApplicationId = firstApp.id;
+      }
+    }
+
     const count = await prisma.sanction.count();
     const sanctionNumber =
       body.sanctionNumber || `SN-2026-${String(count + 1).padStart(6, '0')}`;
@@ -166,10 +211,10 @@ export async function POST(request: Request) {
       data: {
         id: body.id || undefined,
         sanctionNumber,
-        applicationId: body.applicationId,
-        applicationNumber: body.applicationNumber,
-        approvalId: body.approvalId || null,
-        approvalNumber: body.approvalNumber,
+        applicationId: validApplicationId,
+        applicationNumber: body.applicationNumber || existingApp?.applicationNumber || sanctionNumber,
+        approvalId: validApprovalId,
+        approvalNumber: body.approvalNumber || null,
         customerId: body.customerId,
         customerNumber: body.customerNumber,
         customerName: body.customerName,

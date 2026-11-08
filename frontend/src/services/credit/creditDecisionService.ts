@@ -87,8 +87,10 @@ export async function submitCreditDecision(input: SubmitDecisionInput) {
     request,
   } = input;
 
-  const app = await prisma.loanApplication.findUnique({
-    where: { id: applicationId },
+  const app = await prisma.loanApplication.findFirst({
+    where: {
+      OR: [{ id: applicationId }, { applicationNumber: applicationId }],
+    },
     include: {
       creditAssessments: { orderBy: { createdAt: 'desc' }, take: 1 },
       decisions: true,
@@ -133,7 +135,7 @@ export async function submitCreditDecision(input: SubmitDecisionInput) {
   const record = await prisma.creditDecisionRecord.create({
     data: {
       decisionNumber,
-      applicationId,
+      applicationId: app.id,
       decision,
       decisionMakerId: actorUser.id,
       decisionMakerName: actorUser.name,
@@ -165,7 +167,7 @@ export async function submitCreditDecision(input: SubmitDecisionInput) {
   }
 
   await prisma.loanApplication.update({
-    where: { id: applicationId },
+    where: { id: app.id },
     data: {
       status: newStatus,
       approvedAmount: approvedAmount || app.approvedAmount,
@@ -177,7 +179,7 @@ export async function submitCreditDecision(input: SubmitDecisionInput) {
   // 5. APPLICATION HISTORY & AUDIT LOG
   await prisma.applicationHistory.create({
     data: {
-      applicationId,
+      applicationId: app.id,
       eventType: 'CREDIT_DECISION',
       action: `DECISION_${decision}`,
       actor: actorUser.id,
@@ -225,8 +227,10 @@ export async function returnForCorrection(input: ReturnForCorrectionInput) {
     throw new Error('Return reason and detailed comments are mandatory.');
   }
 
-  const app = await prisma.loanApplication.findUnique({
-    where: { id: applicationId },
+  const app = await prisma.loanApplication.findFirst({
+    where: {
+      OR: [{ id: applicationId }, { applicationNumber: applicationId }],
+    },
     include: { returnHistory: true },
   });
 
@@ -240,7 +244,7 @@ export async function returnForCorrection(input: ReturnForCorrectionInput) {
   // 1. Create Return History record
   const returnRecord = await prisma.applicationReturnHistory.create({
     data: {
-      applicationId,
+      applicationId: app.id,
       cycleNumber,
       returnStage,
       returnReason,
@@ -254,7 +258,7 @@ export async function returnForCorrection(input: ReturnForCorrectionInput) {
 
   // 2. Transition Application to RETURNED_FOR_CORRECTION
   await prisma.loanApplication.update({
-    where: { id: applicationId },
+    where: { id: app.id },
     data: {
       status: 'RETURNED_FOR_CORRECTION',
       notes: `Returned for correction (Cycle ${cycleNumber}): ${returnReason}`,
@@ -264,7 +268,7 @@ export async function returnForCorrection(input: ReturnForCorrectionInput) {
   // 3. Application History
   await prisma.applicationHistory.create({
     data: {
-      applicationId,
+      applicationId: app.id,
       eventType: 'RETURN_FOR_CORRECTION',
       action: 'RETURN_APPLICATION',
       actor: actorUser.id,

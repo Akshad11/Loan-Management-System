@@ -18,8 +18,10 @@ export async function GET(
     if (authResult instanceof NextResponse) return authResult;
 
     const { id } = await params;
-    const app = await prisma.loanApplication.findUnique({
-      where: { id },
+    const app = await prisma.loanApplication.findFirst({
+      where: {
+        OR: [{ id }, { applicationNumber: id }],
+      },
       include: {
         history: {
           where: { eventType: { in: ['WORKFLOW_STAGE_CHANGE', 'OFFICER_ASSIGNMENT', 'RETURN_FOR_CORRECTION', 'CREDIT_DECISION'] } },

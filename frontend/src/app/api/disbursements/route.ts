@@ -165,6 +165,18 @@ export async function POST(request: Request) {
       const dsbCount = await prisma.disbursement.count();
       const dsbNumber = `DSB-2026-${String(dsbCount + 101).padStart(6, '0')}`;
 
+      const customer = await prisma.customer.findUnique({
+        where: { id: sanction.customerId },
+        include: {
+          bankAccounts: { orderBy: [{ isPrimary: 'desc' }, { createdAt: 'desc' }] },
+        },
+      });
+      const primaryBank = customer?.bankAccounts?.find((b: any) => b.isPrimary) || customer?.bankAccounts?.[0];
+      const bankName = customer?.bankName || primaryBank?.bankName || 'Verified Primary Account';
+      const accountNumber = customer?.accountNumber || primaryBank?.accountNumberEncrypted || 'Pending Account Registration';
+      const accountNumberMasked = customer?.accountNumberMasked || primaryBank?.accountNumberMasked || (customer?.accountNumber ? `•••• •••• ${customer.accountNumber.slice(-4)}` : '•••• •••• 0000');
+      const ifscCode = customer?.ifscCode || primaryBank?.ifscCode || 'Pending IFSC';
+
       disbursement = await prisma.disbursement.create({
         data: {
           disbursementNumber: dsbNumber,
@@ -189,13 +201,13 @@ export async function POST(request: Request) {
               {
                 beneficiaryType: 'PRIMARY_BORROWER',
                 beneficiaryName: sanction.customerName,
-                bankName: 'HDFC Bank Ltd',
-                accountNumber: '50200084920192',
-                accountNumberMasked: '•••• •••• •••• 0192',
-                ifscCode: 'HDFC0000120',
-                accountType: 'SAVINGS',
-                verificationStatus: 'VERIFIED',
-                verificationSource: 'Aadhaar e-KYC Penny Drop',
+                bankName,
+                accountNumber,
+                accountNumberMasked,
+                ifscCode,
+                accountType: primaryBank?.accountType || 'SAVINGS',
+                verificationStatus: customer?.bankName || primaryBank ? 'VERIFIED' : 'PENDING',
+                verificationSource: customer?.bankName || primaryBank ? 'Primary Customer Account' : 'Verification Required',
               },
             ],
           },

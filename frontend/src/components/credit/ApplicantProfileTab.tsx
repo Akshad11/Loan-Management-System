@@ -126,15 +126,23 @@ export const ApplicantProfileTab: React.FC<ApplicantProfileTabProps> = ({
           <div className="flex items-center gap-2">
             <CreditCard className="w-4 h-4 text-slate-500" />
             <div>
-              <span className="font-semibold text-slate-800">{customer?.bankName || 'HDFC Bank Ltd'}</span>
+              <span className={`font-semibold ${customer?.bankName ? 'text-slate-800' : 'text-slate-500 italic'}`}>
+                {customer?.bankName || 'Banking Details Not Provided'}
+              </span>
               <span className="text-slate-500 block text-[11px]">
-                A/C: {customer?.accountNumberMasked || '••••••••8492'} | IFSC: {customer?.ifscCode || 'HDFC0000084'}
+                A/C: {customer?.accountNumberMasked || (customer?.accountNumber ? `•••• •••• ${customer.accountNumber.slice(-4)}` : 'Not provided')} | IFSC: {customer?.ifscCode || 'Not provided'}
               </span>
             </div>
           </div>
-          <span className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded font-medium text-[11px]">
-            Salary Account Verified
-          </span>
+          {customer?.bankName ? (
+            <span className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded font-medium text-[11px]">
+              Salary Account Verified
+            </span>
+          ) : (
+            <span className="text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded font-medium text-[11px]">
+              Optional / Not Provided
+            </span>
+          )}
         </div>
 
         {application?.coApplicants && application.coApplicants.length > 0 ? (

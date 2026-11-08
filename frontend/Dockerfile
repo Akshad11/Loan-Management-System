@@ -14,7 +14,7 @@ COPY package.json package-lock.json ./
 COPY prisma ./prisma
 COPY prisma.config.ts ./
 
-RUN npm ci
+RUN npm ci || npm install
 
 # ------------------------------------------------------------------------------
 # Stage 2: Build Next.js & Generate Prisma Client

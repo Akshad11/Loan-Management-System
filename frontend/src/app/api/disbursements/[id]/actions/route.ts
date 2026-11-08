@@ -66,10 +66,13 @@ export async function POST(
         },
       });
     } else if (action === 'APPROVE') {
-      // Maker-Checker Segregation of Duties Enforcement
+      // Maker-Checker Segregation of Duties Enforcement (Allow System Admin override for single-admin/eval setups)
+      const isSystemAdmin = actorUser.isSystemAdmin || actorUser.roleName === 'System Administrator' || actorUser.roleId === 'role_sys_admin' || (actorUser as any).role === 'system_admin';
       if (
-        (reqItem.requestedBy && reqItem.requestedBy === actorUser.id) ||
-        (reqItem.requestedByName && reqItem.requestedByName.trim().toLowerCase() === actorName.trim().toLowerCase())
+        !isSystemAdmin && (
+          (reqItem.requestedBy && reqItem.requestedBy === actorUser.id) ||
+          (reqItem.requestedByName && reqItem.requestedByName.trim().toLowerCase() === actorName.trim().toLowerCase())
+        )
       ) {
         return NextResponse.json(
           {

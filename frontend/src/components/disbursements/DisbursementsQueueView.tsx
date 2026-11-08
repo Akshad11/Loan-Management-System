@@ -176,6 +176,7 @@ export const DisbursementsQueueView: React.FC<DisbursementsQueueViewProps> = ({
           onClose={() => setShowCreateModal(false)}
           sanctions={store.sanctions || []}
           disbursements={store.disbursements || []}
+          customers={store.customers || []}
           onCreateRequest={handleCreateRequest}
         />
       )}

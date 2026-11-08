@@ -5,17 +5,46 @@ import 'dotenv/config';
 
 import {
   INITIAL_ROLES,
-  INITIAL_BRANCHES,
   INITIAL_USERS,
   LOAN_PRODUCTS_CONFIG,
   INITIAL_APPROVAL_MATRIX_RULES,
 } from '../src/config/systemTemplates';
 
-const connectionString =
+const provider = (process.env.DB_PROVIDER || '').trim().toLowerCase();
+const dbPassword = (process.env.SUPABASE_DB_PASSWORD || '').trim();
+const projectRef = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').match(/https:\/\/([^.]+)\.supabase\.co/)?.[1] || 'xwyarykuzfzitvsjylih';
+
+const formatSupabaseUrl = (rawUrl?: string): string | undefined => {
+  if (!rawUrl) return undefined;
+  let url = rawUrl.replace(/\[YOUR-PROJECT-REF\]/g, projectRef);
+  if (dbPassword) {
+    url = url.replace(/\[YOUR-PASSWORD\]/g, encodeURIComponent(dbPassword));
+  }
+  if (url.includes('[YOUR-PASSWORD]')) return undefined;
+  return url;
+};
+
+const localPostgres =
+  process.env.POSTGRES_DATABASE_URL ||
   process.env.DATABASE_URL ||
   `postgresql://${process.env.PGUSER || 'postgres'}:${process.env.PGPASSWORD || 'postgres'}@${process.env.PGHOST || 'localhost'}:${process.env.PGPORT || '5432'}/${process.env.PGDATABASE || 'loan_ms_db'}?schema=public`;
 
-const pool = new Pool({ connectionString, max: 2, idleTimeoutMillis: 5000 });
+const connectionString =
+  provider === 'supabase'
+    ? (formatSupabaseUrl(process.env.SUPABASE_DIRECT_URL) || formatSupabaseUrl(process.env.SUPABASE_DATABASE_URL) || localPostgres)
+    : localPostgres;
+
+const isSupabase =
+  Boolean(connectionString && (connectionString.includes('supabase.co') || connectionString.includes('pooler.supabase.com')));
+const requiresSsl =
+  isSupabase || Boolean(connectionString && connectionString.includes('sslmode=require'));
+
+const pool = new Pool({
+  connectionString,
+  max: 2,
+  idleTimeoutMillis: 5000,
+  ...(requiresSsl ? { ssl: { rejectUnauthorized: false } } : {}),
+});
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
@@ -24,28 +53,6 @@ function parseDate(dateStr?: string | null): Date {
   const parsed = new Date(dateStr);
   return isNaN(parsed.getTime()) ? new Date() : parsed;
 }
-
-// Auxiliary branches map for any additional branch referenced across configs
-const ADDITIONAL_BRANCHES: Record<string, { code: string; name: string; city: string; state: string }> = {
-  br_vasco: {
-    code: 'BR-VAS-008',
-    name: 'Vasco Port Branch',
-    city: 'Vasco da Gama',
-    state: 'Goa',
-  },
-  br_bkc_mumbai: {
-    code: 'BR-BKC-009',
-    name: 'Mumbai BKC Regional Hub',
-    city: 'Mumbai',
-    state: 'Maharashtra',
-  },
-  br_bengaluru: {
-    code: 'BR-BLR-010',
-    name: 'Bengaluru Tech Park Branch',
-    city: 'Bengaluru',
-    state: 'Karnataka',
-  },
-};
 
 async function main() {
   console.log('🌱 Starting clean slate database seed for Loan MS...');
@@ -143,7 +150,7 @@ async function main() {
 
   console.log('✅ All existing tables wiped clean.');
 
-  // 2. Seed Roles
+  // 2. Seed Required System Roles
   console.log('🔐 Seeding System Roles...');
   for (const role of INITIAL_ROLES) {
     await prisma.role.create({
@@ -158,54 +165,9 @@ async function main() {
     });
   }
 
-  // 3. Seed Branches
-  console.log('🏢 Seeding Branches...');
-  const seededBranchIds = new Set<string>();
-
-  for (const branch of INITIAL_BRANCHES) {
-    await prisma.branch.create({
-      data: {
-        id: branch.id,
-        code: branch.code,
-        name: branch.name,
-        addressLine1: branch.addressLine1,
-        addressLine2: branch.addressLine2,
-        city: branch.city,
-        state: branch.state,
-        pinCode: branch.pinCode,
-        phone: branch.phone,
-        email: branch.email,
-        managerId: 'usr_001',
-        managerName: 'System Administrator',
-        status: branch.status,
-        activeLoanCount: 0,
-        totalPortfolioValue: 0,
-      },
-    });
-    seededBranchIds.add(branch.id);
-  }
-
-  // Additional mapped branches
-  for (const [branchId, branchData] of Object.entries(ADDITIONAL_BRANCHES)) {
-    if (!seededBranchIds.has(branchId)) {
-      await prisma.branch.create({
-        data: {
-          id: branchId,
-          code: branchData.code,
-          name: branchData.name,
-          city: branchData.city,
-          state: branchData.state,
-          status: 'ACTIVE',
-        },
-      });
-      seededBranchIds.add(branchId);
-    }
-  }
-
-  // 4. Seed 1 Admin User
+  // 3. Seed Single Required Administrator User (no branch required)
   console.log('👤 Seeding Single Admin User...');
   for (const user of INITIAL_USERS) {
-    const branchId = seededBranchIds.has(user.branchId) ? user.branchId : 'br_panjim';
     await prisma.user.create({
       data: {
         id: user.id,
@@ -218,7 +180,7 @@ async function main() {
         department: user.department,
         status: (user.status as any) || 'ACTIVE',
         roleId: user.roleId,
-        branchId: branchId,
+        branchId: null,
         lastLogin: parseDate(user.lastLogin),
         failedLogins: 0,
       },
@@ -226,7 +188,7 @@ async function main() {
     console.log(`   ✓ Admin user seeded: ${user.name} (${user.email} / ${user.username})`);
   }
 
-  // 5. Seed Loan Products Master Data
+  // 4. Seed Required Loan Products Master Configuration
   console.log('📦 Seeding Loan Products Master Configuration...');
   for (const prod of LOAN_PRODUCTS_CONFIG) {
     await prisma.loanProduct.create({
@@ -247,7 +209,7 @@ async function main() {
     });
   }
 
-  // 6. Seed Approval Matrix Rules
+  // 5. Seed Required Approval Matrix Rules
   console.log('⚖️ Seeding Approval Matrix Rules...');
   for (const rule of INITIAL_APPROVAL_MATRIX_RULES) {
     await prisma.approvalMatrixRule.create({
@@ -263,7 +225,7 @@ async function main() {
     });
   }
 
-  // 7. Seed Initial System Audit Log
+  // 6. Seed Initial System Audit Log Entry
   console.log('📜 Seeding Initial System Audit Entry...');
   await prisma.adminAuditLog.create({
     data: {
@@ -282,7 +244,7 @@ async function main() {
     },
   });
 
-  console.log('✨ Fresh slate initialization complete! 1 Admin user and master seed data are ready.');
+  console.log('✨ Fresh slate initialization complete! 1 Admin user and master seed data are ready (Branches omitted).');
 }
 
 main()

@@ -28,14 +28,14 @@ model User {
   department   String?
   status       UserStatus  @default(ACTIVE)
   roleId       String
-  branchId     String
+  branchId     String?
   lastLogin    DateTime?
   failedLogins Int         @default(0)
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
   role         Role        @relation(fields: [roleId], references: [id])
-  branch       Branch      @relation(fields: [branchId], references: [id])
+  branch       Branch?     @relation(fields: [branchId], references: [id])
 
   @@map("users")
 }
@@ -189,8 +189,8 @@ model Customer {
   accountNumberMasked  String?
   accountNumber        String?
   ifscCode             String?
-  branchId             String
-  branchName           String
+  branchId             String?
+  branchName           String?
   status               CustomerRecordStatus @default(ACTIVE)
   assignedOfficer      String?
   activeLoanCount      Int                  @default(0)
@@ -206,7 +206,7 @@ model Customer {
   createdAt            DateTime             @default(now())
   updatedAt            DateTime             @updatedAt
 
-  branch               Branch               @relation(fields: [branchId], references: [id])
+  branch               Branch?              @relation(fields: [branchId], references: [id])
   kycRecords           KycRecord[]
   documents            DocumentItem[]
   applications         LoanApplication[]
@@ -1063,7 +1063,7 @@ model LoanAccount {
   primaryDisbursementNumber  String?
   productCode                String
   productName                String
-  branchId                   String                    @default("br_panjim")
+  branchId                   String?
   branchName                 String?
   assignedOfficer            String?                   @default("Alex Morgan")
   assignedOfficerId          String?                   @default("usr_officer_01")
@@ -1107,7 +1107,7 @@ model LoanAccount {
   application                LoanApplication?          @relation(fields: [applicationId], references: [id])
   sanction                   Sanction?                 @relation(fields: [sanctionId], references: [id])
   disbursement               Disbursement?             @relation(fields: [primaryDisbursementId], references: [id])
-  branch                     Branch                    @relation(fields: [branchId], references: [id])
+  branch                     Branch?                   @relation(fields: [branchId], references: [id])
   scheduleVersions           RepaymentScheduleVersion[]
   schedules                  RepaymentSchedule[]
   charges                    LoanCharge[]

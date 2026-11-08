@@ -17,7 +17,11 @@
     "podman:down": "podman compose -f podman-compose.yml down",
     "podman:logs": "podman compose -f podman-compose.yml logs -f",
     "podman:kube:play": "podman play kube podman-pod.yaml",
-    "podman:kube:down": "podman play kube --down podman-pod.yaml"
+    "podman:kube:down": "podman play kube --down podman-pod.yaml",
+    "docker:build": "docker build -t loan-ms-app:latest -f Dockerfile .",
+    "docker:up": "docker compose up --build -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f web"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

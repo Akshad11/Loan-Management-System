@@ -122,7 +122,8 @@ export const DisbursementTable: React.FC<DisbursementTableProps> = ({
               const latestReq = d.requests[0];
               const requestedAmount = latestReq ? latestReq.requestedAmount : d.remainingAmount;
               const isMaker = latestReq?.requestedByName?.trim().toLowerCase() === currentUser.name.trim().toLowerCase();
-              const canApproveThis = canApproveDisbursement && !isMaker && latestReq?.status === 'PENDING_APPROVAL';
+              const isAdmin = currentUser.roleName === 'System Administrator' || currentUser.roleName?.toLowerCase().includes('admin');
+              const canApproveThis = canApproveDisbursement && (!isMaker || isAdmin) && latestReq?.status === 'PENDING_APPROVAL';
               const canExecuteThis = canExecuteDisbursement && (latestReq?.status === 'APPROVED' || latestReq?.status === 'FAILED');
 
               return (

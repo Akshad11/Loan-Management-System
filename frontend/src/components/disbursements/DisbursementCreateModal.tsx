@@ -8,6 +8,7 @@ interface DisbursementCreateModalProps {
   onClose: () => void;
   sanctions: SanctionRecord[];
   disbursements: any[];
+  customers?: any[];
   onCreateRequest: (data: {
     sanctionId: string;
     requestedAmount: number;
@@ -32,12 +33,14 @@ export const DisbursementCreateModal: React.FC<DisbursementCreateModalProps> = (
   onClose,
   sanctions,
   disbursements,
+  customers = [],
   onCreateRequest,
 }) => {
-  // Only confirmed sanctions can be disbursed
-  const eligibleSanctions = sanctions.filter((s) => s.status === 'SANCTIONED');
+  // Confirmed sanctions, or active drafted sanctions ready for disbursement
+  const eligibleSanctions = sanctions.filter((s) => s.status === 'SANCTIONED' || (s.status as string) === 'APPROVED' || !!s.confirmedBy);
+  const availableSanctions = eligibleSanctions.length > 0 ? eligibleSanctions : sanctions.filter((s) => s.status !== 'CANCELLED');
 
-  const [selectedSanctionId, setSelectedSanctionId] = useState<string>(eligibleSanctions[0]?.id || '');
+  const [selectedSanctionId, setSelectedSanctionId] = useState<string>(availableSanctions[0]?.id || '');
   const [disbursementType, setDisbursementType] = useState<'FULL' | 'PARTIAL'>('FULL');
   const [customAmount, setCustomAmount] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('NEFT');
@@ -54,8 +57,13 @@ export const DisbursementCreateModal: React.FC<DisbursementCreateModalProps> = (
 
   if (!isOpen) return null;
 
-  const selectedSanction = eligibleSanctions.find((s) => s.id === selectedSanctionId);
+  const selectedSanction = availableSanctions.find((s) => s.id === selectedSanctionId) || availableSanctions[0];
   const existingDsb = disbursements.find((d) => d.sanctionId === selectedSanctionId);
+  const customer = customers.find((c) => c.id === selectedSanction?.customerId || c.customerNumber === selectedSanction?.customerNumber);
+  const primaryBeneficiary = existingDsb?.beneficiaries?.[0];
+  const primaryBankName = customer?.bankName || primaryBeneficiary?.bankName;
+  const primaryAccountMasked = customer?.accountNumberMasked || primaryBeneficiary?.accountNumberMasked || (customer?.accountNumber ? `•••• •••• ${customer.accountNumber.slice(-4)}` : null);
+  const primaryIfsc = customer?.ifscCode || primaryBeneficiary?.ifscCode;
 
   const sanctionAmount = selectedSanction ? selectedSanction.approvedAmount : 0;
   const alreadyDisbursed = existingDsb ? existingDsb.totalDisbursedAmount : 0;
@@ -105,13 +113,13 @@ export const DisbursementCreateModal: React.FC<DisbursementCreateModalProps> = (
       notes: notes.trim() || undefined,
       newBeneficiary: useCustomBeneficiary
         ? {
-            beneficiaryType,
-            beneficiaryName: beneficiaryName.trim(),
-            bankName: bankName.trim(),
-            accountNumber: accountNumber.trim(),
-            ifscCode: ifscCode.trim().toUpperCase(),
-            accountType,
-          }
+          beneficiaryType,
+          beneficiaryName: beneficiaryName.trim(),
+          bankName: bankName.trim(),
+          accountNumber: accountNumber.trim(),
+          ifscCode: ifscCode.trim().toUpperCase(),
+          accountType,
+        }
         : undefined,
     });
 
@@ -131,7 +139,7 @@ export const DisbursementCreateModal: React.FC<DisbursementCreateModalProps> = (
           </button>
         </div>
 
-        {eligibleSanctions.length === 0 ? (
+        {availableSanctions.length === 0 ? (
           <div className="py-8 text-center text-xs text-slate-500">
             No confirmed loan sanctions currently available for disbursement. Ensure sanction dossiers are confirmed and accepted first.
           </div>
@@ -150,7 +158,7 @@ export const DisbursementCreateModal: React.FC<DisbursementCreateModalProps> = (
                 }}
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-400 font-medium"
               >
-                {eligibleSanctions.map((s) => (
+                {availableSanctions.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.customerName} — {s.productName} (₹{s.approvedAmount.toLocaleString('en-IN')}) • {s.sanctionNumber}
                   </option>
@@ -193,11 +201,10 @@ export const DisbursementCreateModal: React.FC<DisbursementCreateModalProps> = (
             {/* Disbursement Type */}
             <div className="grid grid-cols-2 gap-2">
               <label
-                className={`p-3 rounded-lg border cursor-pointer flex items-center justify-between ${
-                  disbursementType === 'FULL'
+                className={`p-3 rounded-lg border cursor-pointer flex items-center justify-between ${disbursementType === 'FULL'
                     ? 'border-indigo-600 bg-indigo-50/40 text-indigo-900'
                     : 'border-slate-200 bg-slate-50/50 text-slate-700'
-                }`}
+                  }`}
               >
                 <div>
                   <input
@@ -217,11 +224,10 @@ export const DisbursementCreateModal: React.FC<DisbursementCreateModalProps> = (
               </label>
 
               <label
-                className={`p-3 rounded-lg border cursor-pointer flex items-center justify-between ${
-                  disbursementType === 'PARTIAL'
+                className={`p-3 rounded-lg border cursor-pointer flex items-center justify-between ${disbursementType === 'PARTIAL'
                     ? 'border-indigo-600 bg-indigo-50/40 text-indigo-900'
                     : 'border-slate-200 bg-slate-50/50 text-slate-700'
-                }`}
+                  }`}
               >
                 <div>
                   <input
@@ -267,11 +273,10 @@ export const DisbursementCreateModal: React.FC<DisbursementCreateModalProps> = (
                   key={method}
                   type="button"
                   onClick={() => setPaymentMethod(method)}
-                  className={`py-2 px-2.5 rounded-lg border font-bold text-center text-xs transition-all ${
-                    paymentMethod === method
+                  className={`py-2 px-2.5 rounded-lg border font-bold text-center text-xs transition-all ${paymentMethod === method
                       ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
                       : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                  }`}
+                    }`}
                 >
                   {method === 'DIRECT_TRANSFER' ? 'Direct Book' : method}
                 </button>
@@ -295,7 +300,11 @@ export const DisbursementCreateModal: React.FC<DisbursementCreateModalProps> = (
                 <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 text-xs">
                   <div className="font-bold text-slate-900">{selectedSanction?.customerName}</div>
                   <div className="text-slate-500 font-mono text-[11px] mt-0.5">
-                    HDFC Bank Ltd • •••• •••• •••• 0192 (HDFC0000120) — Verified via KYC
+                    {primaryBankName ? (
+                      `${primaryBankName} • ${primaryAccountMasked || '•••• •••• ••••'} (${primaryIfsc || 'IFSC Pending'}) — Registered Primary Bank`
+                    ) : (
+                      <span className="text-amber-700 italic">No primary bank account registered on customer profile. Please use '+ Add Vendor / Third-party Account' or update customer profile.</span>
+                    )}
                   </div>
                 </div>
               ) : (

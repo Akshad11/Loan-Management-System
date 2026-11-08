@@ -36,8 +36,10 @@ export async function syncApplicationDocumentRequirements(
   applicationId: string,
   actorUser?: AuthContextUser
 ) {
-  const app = await prisma.loanApplication.findUnique({
-    where: { id: applicationId },
+  const app = await prisma.loanApplication.findFirst({
+    where: {
+      OR: [{ id: applicationId }, { applicationNumber: applicationId }],
+    },
     include: {
       coApplicants: true,
       collaterals: true,
@@ -59,7 +61,7 @@ export async function syncApplicationDocumentRequirements(
     );
     if (!exists) {
       docsToCreate.push({
-        applicationId,
+        applicationId: app.id,
         documentType: rule.documentType,
         documentTitle: rule.documentTitle,
         applicantId: app.customerId,
@@ -80,7 +82,7 @@ export async function syncApplicationDocumentRequirements(
       if (!exists) {
         const isIncomeRequired = rule.documentType === 'INCOME_PROOF' ? Number(coApp.monthlyIncome || 0) > 0 : rule.isMandatory;
         docsToCreate.push({
-          applicationId,
+          applicationId: app.id,
           documentType: rule.documentType,
           documentTitle: `${rule.documentTitle} (${coApp.customerName})`,
           applicantId: coApp.id,
@@ -102,7 +104,7 @@ export async function syncApplicationDocumentRequirements(
         );
         if (!exists) {
           docsToCreate.push({
-            applicationId,
+            applicationId: app.id,
             documentType: rule.documentType,
             documentTitle: `${rule.documentTitle} (${col.collateralNumber})`,
             collateralId: col.id,
@@ -119,7 +121,7 @@ export async function syncApplicationDocumentRequirements(
       );
       if (!exists) {
         docsToCreate.push({
-          applicationId,
+          applicationId: app.id,
           documentType: 'VEHICLE_RC',
           documentTitle: `Vehicle RC & Insurance (${col.title})`,
           collateralId: col.id,
@@ -139,7 +141,7 @@ export async function syncApplicationDocumentRequirements(
   }
 
   return await prisma.applicationDocument.findMany({
-    where: { applicationId },
+    where: { applicationId: app.id },
     orderBy: { uploadedAt: 'desc' },
   });
 }
@@ -161,7 +163,7 @@ export async function verifyDocument(params: {
     include: { application: true },
   });
 
-  if (!doc || doc.applicationId !== applicationId) {
+  if (!doc || (doc.applicationId !== applicationId && doc.application?.applicationNumber !== applicationId)) {
     throw new Error(`Document ${documentId} not found on application ${applicationId}.`);
   }
 
@@ -210,7 +212,7 @@ export async function rejectDocument(params: {
     include: { application: true },
   });
 
-  if (!doc || doc.applicationId !== applicationId) {
+  if (!doc || (doc.applicationId !== applicationId && doc.application?.applicationNumber !== applicationId)) {
     throw new Error(`Document ${documentId} not found on application ${applicationId}.`);
   }
 

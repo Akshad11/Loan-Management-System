@@ -20,6 +20,7 @@ export async function GET(request: Request) {
           guarantors: true,
           documents: true,
           history: { orderBy: { timestamp: 'desc' } },
+          formResponse: true,
         },
       });
       if (!app) return NextResponse.json({ error: 'Application not found' }, { status: 404 });
@@ -30,6 +31,7 @@ export async function GET(request: Request) {
         interestRate: Number(app.interestRate),
         customerMonthlyIncome: Number(app.customerMonthlyIncome),
         customerTotalExposure: Number(app.customerTotalExposure),
+        formResponse: app.formResponse,
       });
     }
 
@@ -39,6 +41,7 @@ export async function GET(request: Request) {
         guarantors: true,
         documents: true,
         history: { orderBy: { timestamp: 'desc' } },
+        formResponse: true,
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -76,6 +79,7 @@ export async function GET(request: Request) {
       submittedBy: app.submittedBy,
       rejectionReason: app.rejectionReason,
       cancellationReason: app.cancellationReason,
+      formResponse: app.formResponse,
       coApplicants: app.coApplicants.map((ca: any) => ({
         ...ca,
         monthlyIncome: Number(ca.monthlyIncome),
@@ -114,9 +118,33 @@ export async function POST(request: Request) {
     const { actorUser } = authResult;
 
     const body = await request.json();
-    const appCount = await prisma.loanApplication.count();
-    const applicationNumber =
-      body.applicationNumber || `APP-2026-${String(appCount + 1).padStart(6, '0')}`;
+    let applicationNumber = body.applicationNumber;
+    if (applicationNumber) {
+      const existingApp = await prisma.loanApplication.findUnique({
+        where: { applicationNumber },
+      });
+      if (existingApp && existingApp.id !== body.id) {
+        applicationNumber = null;
+      }
+    }
+
+    if (!applicationNumber) {
+      const allApps = await prisma.loanApplication.findMany({ select: { applicationNumber: true } });
+      let maxSeq = 1000;
+      for (const a of allApps) {
+        const match = a.applicationNumber?.match(/(\d+)(?!.*\d)/);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (!isNaN(num) && num > maxSeq) maxSeq = num;
+        }
+      }
+      let candidateSeq = maxSeq + 1;
+      applicationNumber = `APP-2026-${String(candidateSeq).padStart(6, '0')}`;
+      while (allApps.some((a) => a.applicationNumber === applicationNumber)) {
+        candidateSeq++;
+        applicationNumber = `APP-2026-${String(candidateSeq).padStart(6, '0')}`;
+      }
+    }
 
     if (!body.customerId) {
       return NextResponse.json({ error: 'customerId is required' }, { status: 400 });
@@ -127,8 +155,28 @@ export async function POST(request: Request) {
     });
 
     if (!customer) {
-      const customerCount = await prisma.customer.count();
-      const customerNumber = body.customerNumber || `CUS-${String(customerCount + 1).padStart(6, '0')}`;
+      let customerNumber = body.customerNumber;
+      if (customerNumber && (await prisma.customer.findUnique({ where: { customerNumber } }))) {
+        customerNumber = null;
+      }
+      if (!customerNumber) {
+        const existingCustomers = await prisma.customer.findMany({ select: { customerNumber: true } });
+        let maxCustSeq = 100;
+        for (const c of existingCustomers) {
+          const match = c.customerNumber?.match(/(\d+)(?!.*\d)/);
+          if (match) {
+            const num = parseInt(match[1], 10);
+            if (!isNaN(num) && num > maxCustSeq) maxCustSeq = num;
+          }
+        }
+        let candidateCustSeq = maxCustSeq + 1;
+        customerNumber = `CUS-000${candidateCustSeq}`;
+        while (existingCustomers.some((c) => c.customerNumber === customerNumber)) {
+          candidateCustSeq++;
+          customerNumber = `CUS-000${candidateCustSeq}`;
+        }
+      }
+
       const name = body.customerName || 'Borrower Customer';
       const parts = name.trim().split(' ');
       const firstName = parts[0] || 'Borrower';
@@ -152,6 +200,31 @@ export async function POST(request: Request) {
       });
     }
 
+    // Resolve product configuration and defaults
+    const productCode = body.productCode || 'HL-PRIME-01';
+    let productName = body.productName;
+    let baseRate = 8.5;
+    let productId = body.productId || null;
+
+    const matchedProduct = await prisma.loanProduct.findFirst({
+      where: { code: productCode },
+    });
+    if (matchedProduct) {
+      if (!productName) productName = matchedProduct.name;
+      baseRate = Number(matchedProduct.baseInterestRate || 8.5);
+      if (!productId) productId = matchedProduct.id;
+    }
+    if (!productName) productName = 'Home Loan Prime';
+
+    const interestRate = body.interestRate !== undefined && body.interestRate !== null
+      ? Number(body.interestRate)
+      : baseRate;
+    const requestedAmount = Number(body.requestedAmount || 500000);
+    const requestedTenureMonths = Number(body.requestedTenureMonths || 36);
+
+    const branchId = body.branchId || (customer as any).branchId || actorUser.branchId || 'br_panjim';
+    const branchName = body.branchName || (customer as any).branchName || actorUser.branchName || 'Panaji Head Office Branch';
+
     const app = await prisma.loanApplication.create({
       data: {
         id: body.id || undefined,
@@ -160,22 +233,24 @@ export async function POST(request: Request) {
         customerNumber: customer.customerNumber,
         customerName: customer.name,
         customerMobile: body.customerMobile || customer.mobile,
+        customerEmail: body.customerEmail || customer.email || null,
         customerKycStatus: body.customerKycStatus || 'VERIFIED',
-        customerMonthlyIncome: body.customerMonthlyIncome || 0,
-        customerEmploymentType: body.customerEmploymentType || 'SALARIED',
-        customerExistingLoansCount: body.customerExistingLoansCount || 0,
-        customerTotalExposure: body.customerTotalExposure || 0,
-        productCode: body.productCode,
-        productName: body.productName,
-        requestedAmount: body.requestedAmount,
-        requestedTenureMonths: body.requestedTenureMonths,
-        interestRate: body.interestRate,
+        customerMonthlyIncome: body.customerMonthlyIncome !== undefined ? Number(body.customerMonthlyIncome) : Number(customer.monthlyIncome || 0),
+        customerEmploymentType: body.customerEmploymentType || customer.employmentType || 'SALARIED',
+        customerExistingLoansCount: body.customerExistingLoansCount !== undefined ? Number(body.customerExistingLoansCount) : (customer.activeLoanCount || 0),
+        customerTotalExposure: body.customerTotalExposure !== undefined ? Number(body.customerTotalExposure) : Number(customer.totalOutstanding || 0),
+        productCode,
+        productName,
+        productId,
+        requestedAmount,
+        requestedTenureMonths,
+        interestRate,
         repaymentFrequency: body.repaymentFrequency || 'MONTHLY',
         preferredRepaymentDate: body.preferredRepaymentDate || 5,
-        purpose: body.purpose,
+        purpose: body.purpose || 'Home loan application',
         purposeCategory: body.purposeCategory || 'GENERAL',
-        branchId: body.branchId || actorUser.branchId || 'br_panjim',
-        branchName: body.branchName || actorUser.branchName || 'Main Branch',
+        branchId,
+        branchName,
         loanOfficer: body.loanOfficer || actorUser.name,
         assignedOfficerId: body.assignedOfficerId || actorUser.id,
         status: (body.status as any) || 'DRAFT',
@@ -228,6 +303,7 @@ export async function PUT(request: Request) {
 
     const updateData: any = {};
     if (data.status) updateData.status = data.status;
+    if (data.customerKycStatus !== undefined) updateData.customerKycStatus = data.customerKycStatus;
     if (data.priority) updateData.priority = data.priority;
     if (data.assignedOfficerId !== undefined) updateData.assignedOfficerId = data.assignedOfficerId;
     if (data.loanOfficer !== undefined) updateData.loanOfficer = data.loanOfficer;

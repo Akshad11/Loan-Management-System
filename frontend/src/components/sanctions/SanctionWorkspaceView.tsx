@@ -60,7 +60,16 @@ export const SanctionWorkspaceView: React.FC<SanctionWorkspaceViewProps> = ({
   const [showReturnModal, setShowReturnModal] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
 
-  const sanction = store.getSanctionById(sanctionId);
+  let sanction = store.getSanctionById(sanctionId) || store.getSanctionByApplicationId(sanctionId);
+  if (!sanction && sanctionId) {
+    sanction = store.sanctions.find(
+      (s) =>
+        s.id === sanctionId ||
+        s.sanctionNumber === sanctionId ||
+        s.applicationId === sanctionId ||
+        s.applicationNumber === sanctionId
+    );
+  }
 
   if (!sanction) {
     return (
@@ -191,6 +200,7 @@ export const SanctionWorkspaceView: React.FC<SanctionWorkspaceViewProps> = ({
         canEditSanctionTerms={canEditSanctionTerms}
         canConfirmSanction={canConfirmSanction}
         canGenerateSanctionLetter={canGenerateSanctionLetter}
+        onSelectTab={(tabId) => setActiveTab(tabId)}
       />
 
       {/* Real Disbursement Integration Card */}
@@ -316,6 +326,7 @@ export const SanctionWorkspaceView: React.FC<SanctionWorkspaceViewProps> = ({
             sanction={sanction}
             readinessResult={readinessResult}
             onNavigateModule={onNavigateModule}
+            onOpenConfirmModal={() => setShowConfirmModal(true)}
           />
         )}
 

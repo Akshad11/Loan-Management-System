@@ -32,16 +32,24 @@ import { SessionExpiredState } from './components/shared/AccessDeniedState';
 const MODULE_TITLES: Record<string, string> = {
   dashboard: 'Dashboard',
   customers: 'Customers',
+  customer: 'Customers',
   kyc: 'KYC Verification',
   documents: 'Document Vault',
   applications: 'Loan Applications',
+  application: 'Loan Applications',
   credit_assessment: 'Credit Assessment',
   approvals: 'Approval Matrix',
+  approval: 'Approval Matrix',
   sanctions: 'Sanctions & Underwriting',
+  sanction: 'Sanctions & Underwriting',
   disbursements: 'Disbursement Management',
+  disbursement: 'Disbursement Management',
   loans: 'Active Loans & Portfolios',
+  loan: 'Active Loans & Portfolios',
   repayments: 'Repayments & Dues',
+  repayment: 'Repayments & Dues',
   collections: 'Collections & Delinquency',
+  collection: 'Collections & Delinquency',
   recovery: 'Recovery & Legal Actions',
   restructuring: 'Loan Restructuring',
   charges_adjustments: 'Charges & Waivers',
@@ -91,6 +99,7 @@ const MainAppRouter: React.FC = () => {
       case 'dashboard':
         return <DashboardView onNavigate={(mod) => setCurrentModule(mod)} />;
       case 'customers':
+      case 'customer':
         return <CustomersView onNavigate={(mod) => setCurrentModule(mod)} />;
       case 'kyc':
         return (
@@ -102,6 +111,7 @@ const MainAppRouter: React.FC = () => {
           />
         );
       case 'documents':
+      case 'document':
         return (
           <DocumentsView
             currentUser="Alex Morgan"
@@ -111,6 +121,7 @@ const MainAppRouter: React.FC = () => {
           />
         );
       case 'applications':
+      case 'application':
         return (
           <ApplicationsView
             onNavigateToCustomer={() => {
@@ -119,10 +130,13 @@ const MainAppRouter: React.FC = () => {
           />
         );
       case 'loans':
+      case 'loan':
         return <LoansView onNavigate={(mod) => setCurrentModule(mod)} />;
       case 'repayments':
+      case 'repayment':
         return <RepaymentsView onNavigate={(mod) => setCurrentModule(mod)} />;
       case 'collections':
+      case 'collection':
         return <CollectionsView onNavigate={(mod) => setCurrentModule(mod)} />;
       case 'recovery':
         return <RecoveryView />;
@@ -142,6 +156,7 @@ const MainAppRouter: React.FC = () => {
           />
         );
       case 'approvals':
+      case 'approval':
         return (
           <ApprovalsView
             onNavigateToCreditAssessment={() => {
@@ -153,8 +168,10 @@ const MainAppRouter: React.FC = () => {
           />
         );
       case 'sanctions':
+      case 'sanction':
         return <SanctionsView onNavigate={(mod) => setCurrentModule(mod)} />;
       case 'disbursements':
+      case 'disbursement':
         return <DisbursementsView onNavigate={(mod) => setCurrentModule(mod)} />;
       case 'loan_products':
         return <LoanProductsView onNavigate={(mod) => setCurrentModule(mod)} />;

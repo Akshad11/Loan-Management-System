@@ -309,34 +309,36 @@ export const CustomerInfoSection: React.FC<CustomerInfoSectionProps> = ({
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           <div>
             <span className="text-slate-500 block text-[11px]">Primary Bank</span>
-            <span className="font-medium text-slate-900">{customer.bankName || 'HDFC Bank'}</span>
+            <span className={`font-medium ${customer.bankName ? 'text-slate-900' : 'text-slate-400 italic'}`}>
+              {customer.bankName || 'Not provided'}
+            </span>
           </div>
 
           <div>
             <span className="text-slate-500 block text-[11px]">Account Number (Masked)</span>
-            <span className="font-mono font-medium text-slate-900">
-              {customer.accountNumberMasked || '•••• •••• 8812'}
+            <span className={`font-mono font-medium ${customer.accountNumberMasked || customer.accountNumber ? 'text-slate-900' : 'text-slate-400 italic'}`}>
+              {customer.accountNumberMasked || (customer.accountNumber ? `•••• •••• ${customer.accountNumber.slice(-4)}` : 'Not provided')}
             </span>
           </div>
 
           <div>
             <span className="text-slate-500 block text-[11px]">IFSC Code</span>
-            <span className="font-mono font-medium text-slate-900 uppercase">
-              {customer.ifscCode || 'HDFC0000084'}
+            <span className={`font-mono font-medium uppercase ${customer.ifscCode ? 'text-slate-900' : 'text-slate-400 italic'}`}>
+              {customer.ifscCode || 'Not provided'}
             </span>
           </div>
 
           <div>
             <span className="text-slate-500 block text-[11px]">PAN (Masked)</span>
-            <span className="font-mono font-medium text-slate-900">
-              {customer.panMasked || 'ABCDE••••F'}
+            <span className={`font-mono font-medium ${customer.panMasked ? 'text-slate-900' : 'text-slate-400 italic'}`}>
+              {customer.panMasked || 'Not provided'}
             </span>
           </div>
 
           <div>
             <span className="text-slate-500 block text-[11px]">Aadhaar (Masked)</span>
-            <span className="font-mono font-medium text-slate-900">
-              {customer.aadhaarMasked || '•••• •••• 1001'}
+            <span className={`font-mono font-medium ${customer.aadhaarMasked ? 'text-slate-900' : 'text-slate-400 italic'}`}>
+              {customer.aadhaarMasked || 'Not provided'}
             </span>
           </div>
         </div>

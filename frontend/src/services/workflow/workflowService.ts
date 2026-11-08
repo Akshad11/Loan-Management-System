@@ -88,8 +88,10 @@ export async function transitionWorkflowStage(input: TransitionStageInput) {
     request,
   } = input;
 
-  const app = await prisma.loanApplication.findUnique({
-    where: { id: applicationId },
+  const app = await prisma.loanApplication.findFirst({
+    where: {
+      OR: [{ id: applicationId }, { applicationNumber: applicationId }],
+    },
     include: {
       checklistItems: true,
       deviations: true,
@@ -221,8 +223,10 @@ export async function assignWorkflowApplication(params: {
 }) {
   const { applicationId, officerId, officerName, roleName, actorUser, remarks, request } = params;
 
-  const app = await prisma.loanApplication.findUnique({
-    where: { id: applicationId },
+  const app = await prisma.loanApplication.findFirst({
+    where: {
+      OR: [{ id: applicationId }, { applicationNumber: applicationId }],
+    },
   });
 
   if (!app) {
@@ -232,7 +236,7 @@ export async function assignWorkflowApplication(params: {
   const previousOfficer = app.loanOfficer || 'Unassigned';
 
   const updated = await prisma.loanApplication.update({
-    where: { id: applicationId },
+    where: { id: app.id },
     data: {
       assignedOfficerId: officerId,
       loanOfficer: officerName,
@@ -241,7 +245,7 @@ export async function assignWorkflowApplication(params: {
 
   await prisma.applicationHistory.create({
     data: {
-      applicationId,
+      applicationId: app.id,
       eventType: 'OFFICER_ASSIGNMENT',
       action: 'ASSIGN_APPLICATION',
       actor: actorUser.id,

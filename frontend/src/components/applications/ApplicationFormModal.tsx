@@ -122,6 +122,13 @@ export const ApplicationFormModal: React.FC<ApplicationFormModalProps> = ({
     return customers.find((c) => c.id === selectedCustomerId);
   }, [customers, selectedCustomerId]);
 
+  // Auto-sync branch from selected customer when originating new application
+  useEffect(() => {
+    if (!editingApplication && currentCustomer?.branchId) {
+      setBranchId(currentCustomer.branchId);
+    }
+  }, [currentCustomer, editingApplication]);
+
   // Current product config
   const currentProduct = useMemo(() => {
     return products.find((p) => p.code === selectedProductCode) || products[0];
@@ -215,7 +222,7 @@ export const ApplicationFormModal: React.FC<ApplicationFormModalProps> = ({
       preferredRepaymentDate,
       purpose,
       purposeCategory,
-      branchId: branchId || currentCustomer?.branchName || 'br_panjim',
+      branchId: branchId || currentCustomer?.branchId || 'br_panjim',
       loanOfficer,
       notes,
     });

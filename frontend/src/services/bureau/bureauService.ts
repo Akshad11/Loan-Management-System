@@ -19,8 +19,17 @@ export interface PullBureauReportParams {
  * Retrieves all bureau reports associated with an application (for primary borrower & co-applicants).
  */
 export async function getBureauReportsForApplication(applicationId: string) {
+  const app = await prisma.loanApplication.findFirst({
+    where: {
+      OR: [{ id: applicationId }, { applicationNumber: applicationId }],
+    },
+    select: { id: true },
+  });
+
+  const targetAppId = app ? app.id : applicationId;
+
   const reports = await prisma.bureauReport.findMany({
-    where: { applicationId },
+    where: { applicationId: targetAppId },
     orderBy: { createdAt: 'desc' },
   });
 
@@ -31,8 +40,17 @@ export async function getBureauReportsForApplication(applicationId: string) {
  * Retrieves latest bureau report for a specific applicant.
  */
 export async function getLatestBureauReport(applicationId: string, applicantId: string) {
+  const app = await prisma.loanApplication.findFirst({
+    where: {
+      OR: [{ id: applicationId }, { applicationNumber: applicationId }],
+    },
+    select: { id: true },
+  });
+
+  const targetAppId = app ? app.id : applicationId;
+
   const report = await prisma.bureauReport.findFirst({
-    where: { applicationId, applicantId },
+    where: { applicationId: targetAppId, applicantId },
     orderBy: { createdAt: 'desc' },
   });
 
@@ -51,8 +69,13 @@ export async function pullBureauReport({
   request,
 }: PullBureauReportParams) {
   // 1. Verify application existence
-  const app = await prisma.loanApplication.findUnique({
-    where: { id: applicationId },
+  const app = await prisma.loanApplication.findFirst({
+    where: {
+      OR: [
+        { id: applicationId },
+        { applicationNumber: applicationId },
+      ],
+    },
     include: {
       customer: true,
       coApplicants: true,
@@ -88,8 +111,9 @@ export async function pullBureauReport({
     dob = coApp.dob ? new Date(coApp.dob).toISOString().split('T')[0] : undefined;
   }
 
-  // Ensure PAN conforms to 10 chars format for bureau inquiry
-  if (!pan || pan.includes('X') || pan.length < 10) {
+  // Ensure PAN conforms to valid 10-char alphanumeric format for bureau inquiry
+  const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+  if (!pan || !panRegex.test(pan.trim().toUpperCase())) {
     pan = 'ABCDE1234F'; // fallback safe identifier for inquiry normalization
   }
 
@@ -98,7 +122,7 @@ export async function pullBureauReport({
   if (!forceRefresh) {
     const existing = await prisma.bureauReport.findFirst({
       where: {
-        applicationId,
+        applicationId: app.id,
         applicantId,
         status: 'RECEIVED',
         expiresAt: { gt: now },
@@ -114,7 +138,7 @@ export async function pullBureauReport({
   // 4. Create pending report tracking record
   let bureauRecord = await prisma.bureauReport.create({
     data: {
-      applicationId,
+      applicationId: app.id,
       applicantId,
       applicantType,
       applicantName,

@@ -5,16 +5,20 @@ echo "======================================================="
 echo "   FinTech Enterprise Loan Management System (LMS)     "
 echo "======================================================="
 
-# Ensure DATABASE_URL is constructed if individual variables were supplied
-if [ -z "$DATABASE_URL" ]; then
+# Ensure DATABASE_URL is constructed or prioritized if Supabase is selected
+if [ "$DB_PROVIDER" = "supabase" ]; then
+  export DATABASE_URL="${SUPABASE_DIRECT_URL:-${SUPABASE_DATABASE_URL:-$DATABASE_URL}}"
+elif [ -z "$DATABASE_URL" ]; then
   export DATABASE_URL="postgresql://${PGUSER:-postgres}:${PGPASSWORD:-postgres}@${PGHOST:-postgres}:${PGPORT:-5432}/${PGDATABASE:-loan_ms_db}?schema=public"
 fi
 
 echo "⏳ Checking PostgreSQL connection..."
 node -e '
 const { Pool } = require("pg");
+const isSupabase = (process.env.DATABASE_URL || "").includes("supabase") || (process.env.DB_PROVIDER === "supabase");
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL
+  connectionString: process.env.DATABASE_URL,
+  ...(isSupabase ? { ssl: { rejectUnauthorized: false } } : {})
 });
 
 async function checkDatabase(maxAttempts = 30, delayMs = 2000) {
@@ -43,8 +47,10 @@ npx prisma db push --accept-data-loss
 echo "🔍 Evaluating database seed status..."
 SEED_REQUIRED=$(node -e '
 const { Pool } = require("pg");
+const isSupabase = (process.env.DATABASE_URL || "").includes("supabase") || (process.env.DB_PROVIDER === "supabase");
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL
+  connectionString: process.env.DATABASE_URL,
+  ...(isSupabase ? { ssl: { rejectUnauthorized: false } } : {})
 });
 
 async function evaluateSeed() {

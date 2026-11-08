@@ -31,6 +31,7 @@ interface SanctionHeaderProps {
   canEditSanctionTerms: boolean;
   canConfirmSanction: boolean;
   canGenerateSanctionLetter: boolean;
+  onSelectTab?: (tabId: any) => void;
 }
 
 export const SanctionHeader: React.FC<SanctionHeaderProps> = ({
@@ -45,6 +46,7 @@ export const SanctionHeader: React.FC<SanctionHeaderProps> = ({
   canEditSanctionTerms,
   canConfirmSanction,
   canGenerateSanctionLetter,
+  onSelectTab,
 }) => {
   const activeLetter = sanction.letters.find((l) => l.id === sanction.activeLetterId) || sanction.letters[0];
 
@@ -124,13 +126,24 @@ export const SanctionHeader: React.FC<SanctionHeaderProps> = ({
           )}
 
           {canGenerateSanctionLetter && (
-            <button
-              onClick={onOpenLetterModal}
-              className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-900 text-xs font-semibold rounded-md border border-blue-200 transition-colors inline-flex items-center"
-            >
-              <FileCheck className="w-3.5 h-3.5 mr-1.5 text-blue-700" />
-              {activeLetter ? 'Letter Preview / Regenerate' : 'Generate Sanction Letter'}
-            </button>
+            <div className="flex items-center gap-1.5">
+              {onSelectTab && (
+                <button
+                  onClick={() => onSelectTab('letter')}
+                  className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-900 text-xs font-semibold rounded-md border border-blue-200 transition-colors inline-flex items-center"
+                >
+                  <FileText className="w-3.5 h-3.5 mr-1.5 text-blue-700" />
+                  View Sanction Letter
+                </button>
+              )}
+              <button
+                onClick={onOpenLetterModal}
+                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold rounded-md border border-slate-300 transition-colors inline-flex items-center"
+              >
+                <FileCheck className="w-3.5 h-3.5 mr-1.5 text-slate-600" />
+                Letter Preview & Versions
+              </button>
+            </div>
           )}
 
           {isReturnable && (

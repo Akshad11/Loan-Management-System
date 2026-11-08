@@ -191,7 +191,9 @@ export const KycProfileCard: React.FC<KycProfileCardProps> = ({
             <div>
               <span className="text-[10px] text-slate-500 uppercase">Masked PAN</span>
               <p className="font-mono font-bold text-slate-900">
-                {kyc?.panRecord.idNumberMasked || customer.panMasked || 'ABCDE••••F'}
+                {kyc?.panRecord?.idNumberMasked && kyc.panRecord.idNumberMasked !== 'NOT_PROVIDED'
+                  ? kyc.panRecord.idNumberMasked
+                  : customer.panMasked || 'Not provided'}
               </p>
             </div>
             <div>
@@ -250,7 +252,9 @@ export const KycProfileCard: React.FC<KycProfileCardProps> = ({
             <div>
               <span className="text-[10px] text-slate-500 uppercase">Masked UIDAI Reference</span>
               <p className="font-mono font-bold text-slate-900">
-                {kyc?.aadhaarRecord.idNumberMasked || customer.aadhaarMasked || '•••• •••• 1001'}
+                {kyc?.aadhaarRecord?.idNumberMasked && kyc.aadhaarRecord.idNumberMasked !== 'NOT_PROVIDED'
+                  ? kyc.aadhaarRecord.idNumberMasked
+                  : customer.aadhaarMasked || 'Not provided'}
               </p>
             </div>
             <div>
