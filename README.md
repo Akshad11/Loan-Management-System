@@ -1,4 +1,4 @@
-﻿# Enterprise Loan Management System (LMS)
+# Enterprise Loan Management System (LMS)
 
 A modern full-stack Digital Lending and Loan Servicing Platform built with Next.js, TypeScript, Tailwind CSS, and Prisma ORM.
 
@@ -67,6 +67,23 @@ run.bat
 `ash
 docker compose up --build -d
 `
+
+---
+
+## 💻 Local Setup (Without Docker — npm & Prisma)
+
+To run the application locally on your machine with `npm run` and manage SQL updates directly:
+
+See the comprehensive [Local Setup Guide](LOCAL_SETUP.md).
+
+```bash
+cd frontend
+npm install
+npx prisma generate
+npx prisma db push
+npm run prisma:seed
+npm run dev
+```
 
 ---
 
